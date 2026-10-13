@@ -23,4 +23,4 @@ AI agents start at [AGENTS.md](AGENTS.md), which sends each kind of agent to a s
 
 ## Status
 
-Design. The code arrives with the first stage of the roadmap (P0, the pipeline core).
+Where the work stands, last done and next: [roadmap, Now](docs/5-roadmap.md#now).
