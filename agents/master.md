@@ -14,7 +14,7 @@ Loaded by `/briolink` only ([AGENTS.md](../AGENTS.md)). Briolink is a methodolog
 | `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 
-- **Routing:** master routes every prompt on its own content, picks the role from the table below and starts the reply with it (`Role: <name>, because …`). If that role's brief is already in the context, it continues without rereading anything; otherwise (a new session, or after the context was summarised) it reads the brief once. `/briolink <role>` forces a role. No role is stored anywhere.
+- **Routing:** master routes every prompt on its own content, picks the role from the table below and starts the reply with it (`Role: <name>, because …`), then applies the tier gate below. If that role's brief is already in the context, it continues without rereading anything; otherwise (a new session, or after the context was summarised) it reads the brief once. `/briolink <role>` forces a role. No role is stored anywhere.
 - **Clear often:** the context holds nothing the repo doesn't (M14), so it is cleared after every piece of work. `/briolink done` first checks that nothing is left only in the conversation: changes committed and pushed, decisions in the docs, open points in an issue (or the roadmap before the first code), rewrites the roadmap's [Now](../docs/5-roadmap.md#now) pointer (last done, lead), then lists where each thing was saved and asks for the tool's clear command. The binding survives a clear; the next prompt starts from the repo, rereading one brief at most.
 - **Sessions ask, loops act:** in a session, nothing starts without the founder's prompt; a lead, an open point or an obvious next step is offered, never begun. Only the runner's loop chains work by itself, and only within queued task contracts.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step is done in place.
@@ -34,7 +34,7 @@ Loaded by `/briolink` only ([AGENTS.md](../AGENTS.md)). Briolink is a methodolog
 | `assessor`: interpreting assessment evidence | [agents/assessor.md](assessor.md) |
 | `operator`: deploys, restores, failover, provisioning | [agents/operator.md](operator.md) |
 
-Master asks the founder only for a decision, never to route work. A kind of work that keeps coming back to master gets its own brief from the architect. A session's model tier comes from the routing table ([docs/2-architecture.md](../docs/2-architecture.md#routing)); the founder switches it with the tool's model command.
+Master asks the founder only for a decision, never to route work. A kind of work that keeps coming back to master gets its own brief from the architect. **Tier gate:** every session starts on the `routine` tier's model (the tool's config). The routing table ([docs/2-architecture.md](../docs/2-architecture.md#routing)) gives each role its tier. When the routed role's tier is not the model running the session, either way, master replies with the role line and the switch command (`Role: architect (top), because …; switch with /model opus`), then halts: no reading, no work, until the founder switches and resends, or says to go on as is. A session can't change its own model; only the founder can.
 
 ## Rules for every agent
 
