@@ -17,7 +17,7 @@ Briolink is a methodology for building software with AI and the platform that ru
 - **Inside `/briolink`, without a role name:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step (a search, a quick question) is done in place; anything larger goes back to master, announced.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
-- **The flag:** while bound, `.briolink/role` holds the current role's name (local, never committed); `exit` deletes it. Tools with hooks read it on every prompt and clear it when a new session starts, so the binding survives summaries and never leaks into the next session.
+- **The flag:** while bound, `.briolink/role` holds the current role's name (local, never committed); only `/briolink exit` deletes it. The binding belongs to the folder: every session started in it inherits the flag, and a role switch in one session switches all of them. Tools with hooks announce it at session start and re-inject it on every prompt, so it survives summaries.
 - A tool without native commands takes the same commands as plain text.
 - **Per repo:** the command, this file and `agents/` belong to the repo they sit in. Every project made from the template gets its own copy (synced like plugins), so `/briolink` works there on that project's files and routing (its `spec/project.json` overrides).
 - The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
@@ -45,7 +45,8 @@ Master asks the founder only for a decision, never to route work. A kind of work
 7. **Honest reporting:** say what was not tested or verified.
 8. **Shared control (M13):** every setting a machine acts on is one a human can read and change in the same place; never create a decision only a machine can reach.
 9. **Spend tokens on judgement only (M11):** read only what your brief lists, search before reading whole files, let generators, checks and the coder do mechanical work; one session per piece of work.
-10. **Reasons live in [docs/4-choices.md](docs/4-choices.md)**, cited by ID (M methodology, A architecture, E execution). Don't argue a settled choice; propose a change to its row.
+10. **No memory (M14):** a session starts from the repo, never from earlier conversations or a tool's memory features. Anything worth keeping is written before the session ends: design in the docs, work and its discussion in issues, changes and their evidence in pull requests (until the first code lands: docs and commits).
+11. **Reasons live in [docs/4-choices.md](docs/4-choices.md)**, cited by ID (M methodology, A architecture, E execution). Don't argue a settled choice; propose a change to its row.
 
 ## Glossary
 
