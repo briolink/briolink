@@ -2,11 +2,11 @@
 
 ## Now
 
-The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point.
+The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
 - **Last (2026-10-13):** session commands: `/briolink` binds a folder flag, master routes every prompt, `/briolink done` saves before a clear (M10, M14).
-- **Next:** decide whether the design is stable enough to start P0. If yes: set up the code host (Checklist), then the P0 skeleton (`go.mod`, layout, CI) as the first issue.
+- **Lead:** is the design stable enough to start P0? If so, the code host setup (Checklist) and the P0 skeleton (`go.mod`, layout, CI) would be the first issues.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
