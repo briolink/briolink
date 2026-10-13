@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink session bound in this folder (.briolink/bound): every prompt goes through master (AGENTS.md). /briolink exit unbinds.'; exit 0"
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink session bound in this folder (.briolink/bound): read agents/master.md; every prompt goes through master. /briolink exit unbinds.'; exit 0"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink bound: as master, route this prompt to a role (AGENTS.md) and start the reply with Role: <name>.'; exit 0"
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink bound: as master, route this prompt to a role (agents/master.md) and start the reply with Role: <name>.'; exit 0"
           }
         ]
       }

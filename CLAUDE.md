@@ -1,2 +1,2 @@
-<!-- The canonical, tool-agnostic instructions live in AGENTS.md; this file only imports them. -->
+<!-- Plain sessions are unbound. `/briolink` loads agents/master.md (see AGENTS.md). -->
 @AGENTS.md

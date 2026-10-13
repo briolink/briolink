@@ -19,7 +19,7 @@ Read in order:
 4. [Choices](docs/4-choices.md): every decision and why, including today's providers and what happens if one fails.
 5. [Roadmap](docs/5-roadmap.md): where we are and what's next.
 
-AI agents start at [AGENTS.md](AGENTS.md), which sends each kind of agent to a short brief in [agents/](agents/) listing only what it needs to read.
+AI agents are unbound until `/briolink`, which loads [agents/master.md](agents/master.md); it routes each prompt to a short brief in [agents/](agents/) listing only what that role reads.
 
 ## Status
 

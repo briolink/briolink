@@ -43,7 +43,7 @@ Each tests one assumption; a failure changes only the area in brackets.
 - [ ] The `sqlite` plugin's generator: preparing every statement against the migrated schema catches wrong tables, columns (in `WHERE` too), counts and parameters, and the declared result columns match the database's [generators]
 - [ ] The mutation checker reproduces the pilot's 32/32 on the same functions, cross-checked with Gremlins on them: every mutant one tool kills and the other misses is explained [quality]
 - [ ] Port contract tests pass on two object-storage adapters [ports]
-- [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
+- [ ] Coder: tokens per second and time per task while the GPU is shared; on the same benchmark, first-pass rate and cost per task against a hosted small model in the `coder` tier [coder]
 - [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
 - [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; whether a cheap replan before escalating (the routine tier re-cuts the task or rewrites the plan from the failure, then the coder retries) solves enough failures to skip escalations; proposes the first changes to `spec/routing.json` [reasoner]
 - [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]

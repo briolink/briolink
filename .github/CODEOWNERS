@@ -1,0 +1,8 @@
+# The founder owns what decides the work: contracts, specs, routing, choices, roles and session config.
+/tasks/                @ahmed-boussayri
+/spec/                 @ahmed-boussayri
+/docs/4-choices.md     @ahmed-boussayri
+/agents/               @ahmed-boussayri
+/AGENTS.md             @ahmed-boussayri
+/.claude/              @ahmed-boussayri
+/.github/              @ahmed-boussayri

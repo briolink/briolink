@@ -17,4 +17,4 @@ The reasoner designing a project: it turns intent, an assessment's backlog or a 
 5. Cut work into tasks the coder can pass: one pure function or one generated surface each, with allowed files, checks, risk and budget.
 6. **Changes (M12):** load only `spec/project.json` and the affected context; write the model diff, and tasks only for pure functions whose signature, rules or tests changed.
 7. Nothing goes to the build before the specification gate passes and the founder approves the model (M7).
-8. **Briefs:** one per recurring kind of work. A brief states who the role is, links the exact sections to read, and holds only rules no other role needs; it never copies a doc. Add the role to the table in [AGENTS.md](../AGENTS.md). Shrink a brief whenever a role reads more than it uses.
+8. **Briefs:** one per recurring kind of work. A brief states who the role is, links the exact sections to read, and holds only rules no other role needs; it never copies a doc. Add the role to the table in [master.md](master.md). Shrink a brief whenever a role reads more than it uses.

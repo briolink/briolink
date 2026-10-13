@@ -44,7 +44,7 @@ Preview and production each have their own hostnames, buckets, site project, ins
 
 ```text
 <client>/
-├── AGENTS.md          same doc skeleton as this repo, with agents/ and the /briolink command (synced from the template)
+├── AGENTS.md          same skeleton as this repo: AGENTS.md, agents/ and the /briolink command (synced from the template)
 ├── api/               Go module: cmd/server/, spec/, gen/, internal/{core,plugins,domain}/, templates/, migrations/, tests/
 ├── app/               public/ (ES modules, CSS, fonts, headers), edge/ (the request function)
 ├── container/         Containerfile (arm64 + amd64), Quadlet unit templates

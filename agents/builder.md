@@ -4,7 +4,7 @@ Any agent building or changing this repo: platform code, generators, plugins or 
 
 ## Read
 
-- [AGENTS.md](../AGENTS.md) rules.
+- [master.md](master.md) rules.
 - [2-architecture.md](../docs/2-architecture.md): [Roles and adapters](../docs/2-architecture.md#roles-and-adapters), [Work tracking](../docs/2-architecture.md#work-tracking), [This repo](../docs/2-architecture.md#this-repo), then only the section of the module you touch.
 - [4-choices.md](../docs/4-choices.md): only the rows your task cites.
 - [5-roadmap.md](../docs/5-roadmap.md#spikes): the spike, if your task is one.

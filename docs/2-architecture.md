@@ -24,7 +24,7 @@ Briolink sells three offers on one pipeline, in this order: **Assess** an existi
 | Ops host | An always-on machine for the control plane, the warm standby, the coder and the network hub | Operator side |
 | Private network | An encrypted peer network that servers dial out to | Admin access, replicas, metrics |
 | Code host | Git with protected branches and required reviews by code owners; issues with labels and milestones through an API; CI on tags; an OCI registry with attestations and read-only pull tokens | Repos, work tracking, approvals, deploys |
-| Coder model | Local, no per-token cost; turns a task contract into code | Runner |
+| Coder model | Cheap per task (local by default, no per-token cost); turns a task contract into code; which model is a routing-table entry | Runner |
 | Reasoner model | Structured output, cost reporting, a tier chosen per call | Runner, specifications |
 | Notifier | Push alerts, de-duplicated, with a fallback channel | Control plane |
 | External pinger | A dead-man's switch outside our infrastructure | Monitoring, failover |
@@ -78,6 +78,7 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 
 | Job | Tier |
 | --- | --- |
+| Pure functions: first attempts and retries | `coder` |
 | Model, statecharts, specification gate | `top` |
 | Tests from a checked statechart; a change diff inside one context | `routine` |
 | Escalation: first answer / second answer | `routine` / `top` |
@@ -85,13 +86,13 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 | Session roles: architect, escalation hand-off / builder, operator, assessor, master | `top` / `routine` |
 
 ```json
-{ "tiers": { "routine": "<model>", "top": "<model>" },
+{ "tiers": { "coder": "<model>", "routine": "<model>", "top": "<model>" },
   "jobs": { "escalation.first": "routine", "escalation.second": "top" },
   "propose_promotion_below": 0.6, "on_top_limit": "queue-design-jobs" }
 ```
 
 - The threshold and the tier per row are *estimates* until the tier spike ([5-roadmap.md](5-roadmap.md#spikes)) measures them.
-- **Precedence:** a project may override a job's tier in its `spec/project.json`; otherwise the platform table applies. Models per tier are in [4-choices.md](4-choices.md) (E15).
+- **Precedence:** a project may override a job's tier in its `spec/project.json`; otherwise the platform table applies. Models per tier are in [4-choices.md](4-choices.md) (E14, E15). Every model is swappable: a tier names a model, and any model with an adapter for its port (`Coder` or `Reasoner`) can fill it, local or hosted.
 - **Human side:** the founder edits the file by pull request; before P3 that is the only way, after it the control center opens the same pull request. In a session, the founder switches the model with the tool's own command.
 - **Machine side:** the control plane serves the table at `/api/v1/routing` (read-only). When a job kind's solve rate at its tier falls below `propose_promotion_below` (or stays high a tier up), it opens a pull request changing that row, with the run records as evidence. It never applies one.
 - Every run record names the tier, the row that chose it and the model used.
@@ -203,8 +204,8 @@ Serving, servers, backups, failover, trials and operations: [3-hosting.md](3-hos
 
 ```text
 README.md              for humans
-AGENTS.md              entry point for any agent (CLAUDE.md only imports it)
-agents/                one brief per agent role: what to read, role-only rules
+AGENTS.md              tells any agent that nothing binds it until /briolink (CLAUDE.md imports it)
+agents/                master.md (rules, roles, routing) and one brief per role
 docs/                  1-methodology … 5-roadmap
 go.mod                 module github.com/briolink/briolink (E1)
 cmd/control/           composition root: control plane + control center

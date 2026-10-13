@@ -4,9 +4,9 @@ argument-hint: [role|list|done|exit] [task]
 ---
 Arguments: $ARGUMENTS
 
-Follow "Session and roles" in AGENTS.md.
+Read `agents/master.md` if it is not already in the context, and follow its "Session and roles".
 - `exit`: delete `.briolink/bound` and answer as the plain model from now on, with no role line.
-- `list`: list the roles from AGENTS.md and stop.
+- `list`: list the roles from `agents/master.md` and stop.
 - `done`: close the piece of work. Check `git status` and unpushed commits; commit and push what belongs to the work, and write any decision or open point the conversation holds into the docs, an issue, or the roadmap. Rewrite the roadmap's Now section: Last (date, one line, the IDs or links touched) and Lead (one line, phrased as a suggestion; once issues exist, it links the issue). Then reply with a short list of where everything was saved and what was left out, and end with: `Saved. Run /clear to start the next piece of work fresh.` Never clear with anything unsaved.
 - Anything else: first create `.briolink/bound` (an empty file; create the folder) if it is missing. Then:
   - empty: say the session is bound, read the Now section of `docs/5-roadmap.md`, offer its Lead as a question, and wait: never start it;
