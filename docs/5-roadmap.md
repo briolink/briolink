@@ -1,6 +1,12 @@
 # Roadmap
 
-**Now (2026-10-13):** design, committed straight to `main`; next, P0.
+## Now
+
+The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point.
+
+- **Stage:** design, committed straight to `main`; next, P0.
+- **Last (2026-10-13):** session commands: `/briolink` binds a folder flag, master routes every prompt, `/briolink done` saves before a clear (M10, M14).
+- **Next:** decide whether the design is stable enough to start P0. If yes: set up the code host (Checklist), then the P0 skeleton (`go.mod`, layout, CI) as the first issue.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 

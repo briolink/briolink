@@ -1,6 +1,6 @@
 # Briolink: agent entry
 
-Briolink is a methodology for building software with AI and the platform that runs it. Humans start at [README.md](README.md). Current stage: [docs/5-roadmap.md](docs/5-roadmap.md#stages).
+Briolink is a methodology for building software with AI and the platform that runs it. Humans start at [README.md](README.md). Where the work stands (last done, next): [docs/5-roadmap.md](docs/5-roadmap.md#now).
 
 ## Session and roles (M10)
 
@@ -8,14 +8,14 @@ Briolink is a methodology for building software with AI and the platform that ru
 
 | Command | Effect |
 | --- | --- |
-| `/briolink [task]` | Bind the session; master routes this and every later prompt |
+| `/briolink [task]` | Bind the session; master routes this and every later prompt. Without a task, master reads [Now](docs/5-roadmap.md#now) and proposes the next step |
 | `/briolink <name> [task]` | Bind, and take this task as that role: read `agents/<name>.md`, then only the sections it lists |
 | `/briolink done` | Close the piece of work: save everything, then clear the context |
 | `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 
 - **Routing:** master routes every prompt on its own content, picks the role from the table below and starts the reply with it (`Role: <name>, because …`). If that role's brief is already in the context, it continues without rereading anything; otherwise (a new session, or after the context was summarised) it reads the brief once. `/briolink <role>` forces a role. No role is stored anywhere.
-- **Clear often:** the context holds nothing the repo doesn't (M14), so it is cleared after every piece of work. `/briolink done` first checks that nothing is left only in the conversation: changes committed and pushed, decisions in the docs, open points in an issue (or the roadmap before the first code), then lists where each thing was saved and asks for the tool's clear command. The binding survives a clear; the next prompt starts from the repo, rereading one brief at most.
+- **Clear often:** the context holds nothing the repo doesn't (M14), so it is cleared after every piece of work. `/briolink done` first checks that nothing is left only in the conversation: changes committed and pushed, decisions in the docs, open points in an issue (or the roadmap before the first code), rewrites the roadmap's [Now](docs/5-roadmap.md#now) pointer (last done, next), then lists where each thing was saved and asks for the tool's clear command. The binding survives a clear; the next prompt starts from the repo, rereading one brief at most.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step is done in place.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
 - **The flag:** while bound, the empty file `.briolink/bound` exists (local, never committed); only `/briolink exit` deletes it. It belongs to the folder: every session started there inherits it. Tools with hooks announce it at session start and re-inject it on every prompt, so the binding survives summaries.
