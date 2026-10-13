@@ -21,7 +21,7 @@ Any agent building or changing this repo: platform code, generators, plugins or 
 - Each fact in one place; link instead of repeating. Reasons only in 4-choices, cited by ID.
 - The methodology names no tool; the architecture names roles; concrete choices go in 4-choices.
 - A changed decision: edit its row (or add the next free ID in its group), then the doc it governs. Docs describe the current design; history is in git.
-- Keep the file set: README, AGENTS, five numbered docs, these briefs, and one command file per tool that needs one (`.claude/commands/`). Split a doc only when a section can't be read on its own.
+- Keep the file set: README, AGENTS, five numbered docs, these briefs, and one command and hook config per tool that needs one (`.claude/`). Split a doc only when a section can't be read on its own.
 - A brief lists sections to read and role-only rules; it never copies a doc.
 - Client material stays in the client's repo; examples use `acme`.
 - Plain Markdown, terse, standard links. Mark unmeasured figures *estimate*; dates YYYY-MM-DD.

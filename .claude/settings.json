@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          { "type": "command", "command": "rm -f \"$CLAUDE_PROJECT_DIR/.briolink/role\"" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.briolink/role\"; if [ -f \"$f\" ]; then r=$(head -c 40 \"$f\"); echo \"Briolink session bound (.briolink/role): role $r. Handle this prompt as $r and start the reply with 'Role: $r'.\"; fi; exit 0" }
+        ]
+      }
+    ]
+  }
+}

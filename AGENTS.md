@@ -17,6 +17,7 @@ Briolink is a methodology for building software with AI and the platform that ru
 - **Inside `/briolink`, without a role name:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step (a search, a quick question) is done in place; anything larger goes back to master, announced.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
+- **The flag:** while bound, `.briolink/role` holds the current role's name (local, never committed); `exit` deletes it. Tools with hooks read it on every prompt and clear it when a new session starts, so the binding survives summaries and never leaks into the next session.
 - A tool without native commands takes the same commands as plain text.
 - **Per repo:** the command, this file and `agents/` belong to the repo they sit in. Every project made from the template gets its own copy (synced like plugins), so `/briolink` works there on that project's files and routing (its `spec/project.json` overrides).
 - The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
@@ -54,7 +55,7 @@ Master asks the founder only for a decision, never to route work. A kind of work
 | Tier / routing table | A reasoner strength (`routine`, `top`) / the founder-owned file mapping each job and session role to a tier |
 | Model | A project's specification: bounded contexts, entities, statecharts, interfaces, queries, plugins |
 | Statechart | An entity's lifecycle: states, events, transitions, guards, actions; tests derive from it |
-| Generators | Our tools turning the model into plumbing and derived tests in `gen/` |
+| Generators | Plugins turning their part of the model into plumbing and derived tests in `gen/` |
 | Task contract | One bounded task: objective, allowed files, checks, risk, budget; a JSON file in `tasks/`, with one issue |
 | Runner | The control plane module that runs a task: coder, checks, retries, escalation |
 | Control plane / center | The headless service running everything / its browser UI, one API client |

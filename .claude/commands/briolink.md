@@ -5,6 +5,8 @@ argument-hint: [role|master|list|exit] [task]
 Arguments: $ARGUMENTS
 
 Follow "Session and roles" in AGENTS.md. Until `exit`, every later prompt stays bound and every reply starts with `Role: <name>`.
+
+The flag: on every bind or switch, write the role's name alone to `.briolink/role` (create the folder); on `exit`, delete the file. Do it first, in one command.
 - If the arguments are empty, bind the session as master and wait for a task.
 - If the first argument is `exit`, unbind: answer as the plain model from now on, with no role line.
 - If the first argument is `master`, drop the current role and act as master.

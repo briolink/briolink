@@ -111,12 +111,14 @@ From the first code on, each repo's issues are its tasks:
 
 ## Specs and generators
 
-| File | Holds | Generator |
+Generators are plugins (A5): each spec kind belongs to the plugin that serves it, and that plugin ships its generator. The core only hosts them: `generate/` runs the selected plugins' generators in dependency order. A new spec kind is a new plugin.
+
+| File | Holds | Owning plugin generates |
 | --- | --- | --- |
-| `spec/project.json` | Plugins and their options | Wiring |
-| `spec/domain/<context>.json` | One bounded context: glossary, entities and invariants, statecharts, pure function signatures and rules | `domaingen`: types, transition tables, dispatchers, stubs, derived tests |
-| `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `apigen`: handlers, validation, route table, typed structs |
-| `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result | The queries generator (P0 spike): typed functions, and a test that prepares every statement against the migrated schema test |
+| `spec/project.json` | Plugins and their options | Core: the wiring |
+| `spec/domain/<context>.json` | One bounded context: glossary, entities and invariants, statecharts, pure function signatures and rules | `domain`: types, transition tables, dispatchers, stubs, derived tests |
+| `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `http`: handlers, validation, route table, typed structs |
+| `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result columns and types | `sqlite`: typed functions. It applies the migrations and prepares every statement with the database itself, so a wrong table, column, count or parameter fails generation, and the declared result columns are checked against the database's. A generated test repeats the check |
 
 Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker (`quality/mutate`) is our own, built on `go/ast`.
 
@@ -124,19 +126,21 @@ Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker 
 
 *Choices: A5.*
 
-A client app is a **minimal core plus the plugins its project picks**. The core: the plugin registry and lifecycle, config loading and validation, the migration runner, the runtime the generated code targets.
+A client app is a **minimal core plus the plugins its project picks**. The core: the plugin registry and lifecycle, config loading and validation, the migration runner, the generator host, the runtime the generated code targets.
 
-Each plugin solves a generic capability (never one client's case), ships a manifest (name, version, purpose, options with defaults, ports needed, plugins depended on, contributed spec fragments, migrations, templates, front-end modules), and has its own tests, contract tests, README and semantic version.
+Each plugin solves a generic capability (never one client's case), ships a manifest (name, version, purpose, options with defaults, ports needed, plugins depended on, contributed spec kinds and their generator, spec fragments, migrations, templates, front-end modules), and has its own tests, contract tests, README and semantic version.
 
 - The **architect** (the reasoner, approved by the founder) picks plugins and options into `spec/project.json`; generators write the wiring; plugins are compiled in.
 - Each client repo receives only its plugins; the control plane syncs updates version by version.
 - A missing capability is specified as a generic plugin, built by the pipeline, and joins the catalog.
 
-**Initial catalog** (P1):
+**Initial catalog** (`domain`, `http` and `sqlite` in P0 because the pipeline needs their generators; the rest in P1):
 
 | Plugin | Capability | Options (examples) |
 | --- | --- | --- |
-| `http` | Routing on `net/http` patterns, JSON, errors | Base path, error format |
+| `domain` | Bounded contexts and statecharts: the `spec/domain` generator | — |
+| `http` | Routing on `net/http` patterns, JSON, errors; the `spec/routes.json` generator | Base path, error format |
+| `sqlite` | SQLite access, migrations, the `spec/queries` generator | Open-database cap, pragmas |
 | `session` | Server-side sessions, `__Host-` cookie, rotation at login | Lifetimes per role |
 | `auth` | Accounts and login: password (argon2id), TOTP, roles | Which methods are on |
 | `origin` | Exact-origin CORS, `http.CrossOriginProtection` plus the Origin check | Allowed origins |
@@ -210,7 +214,7 @@ tasks/                 task contracts
 port/                  one interface per role, with contract tests
 adapter/<role>/<name>/ provider implementations
 runner/                the loop: coder, checks, retries, escalation
-generate/              domaingen, apigen; the queries generator per the P0 spike
+generate/              the generator host (generators live in their plugins)
 quality/mutate/        mutation checker
 core/                  the client-app core
 plugins/<name>/        the plugin catalog
