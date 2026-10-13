@@ -52,8 +52,8 @@ Release: preview → founder approval → production (pulled deploys)
 
 | Component | Does | Never |
 | --- | --- | --- |
-| Control plane | Projects, specs, task dispatch, scope rules, approvals outside a repo, audit log, scheduling, monitoring | Delegates authorisation to a model; holds production write keys |
-| Runner | Executes task contracts | Changes acceptance criteria or skips a check |
+| Control plane | Projects, specs, task dispatch, scope rules, approvals outside a repo, audit log, scheduling, monitoring | Delegates authorisation to a model; holds production write keys; exposes a setting or action only machines can reach (M13) |
+| Runner | Executes task contracts | Changes acceptance criteria or its own routing; skips a check |
 | Build workers | One task in one workspace | Reach the network; touch files outside the task |
 | Assessment workers | Crawling, browser tests, measurements | Reach private networks; change a target's state without authorisation |
 
@@ -69,8 +69,31 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 3. Apply the returned code to the allowed files only; anything else is rejected.
 4. Run the checks: `gofmt`, `go vet`, regenerate-and-diff, `go test`, the mutation check.
 5. **Pass:** record it, open a pull request that closes the task's issue, post an attempt summary on the issue (no cost figures: client repos are visible to the client). **Fail:** retry with the failure output until the budget is spent, or escalate early when two attempts fail the same tests with the same output.
-6. Escalate to the reasoner at the routine tier, then once at the top tier, within the task's `reasoner_usd`; the input is the contract, the model slice, the tests, the last attempt and its trimmed failure, and the earlier attempts' failing test names. The same checks apply to its answer.
+6. Escalate to the reasoner at the tiers [routing](#routing) gives (first answer, then once a second), within the task's `reasoner_usd`; the input is the contract, the model slice, the tests, the last attempt and its trimmed failure, and the earlier attempts' failing test names. The same checks apply to its answer.
 7. Escalate to the founder: the issue gets `state:needs-founder` and is assigned, with a link to the full history.
+
+## Routing
+
+*Choices: M11, M13, E15.* Which executor and tier take each job is a table, not code: `spec/routing.json` in the platform repo, owned by the founder like `spec/`.
+
+| Job | Tier |
+| --- | --- |
+| Model, statecharts, specification gate | `top` |
+| Tests from a checked statechart; a change diff inside one context | `routine` |
+| Escalation: first answer / second answer | `routine` / `top` |
+| Assessment interpretation | `routine` |
+| Session roles: architect, escalation hand-off / builder, operator, assessor, master | `top` / `routine` |
+
+```json
+{ "tiers": { "routine": "<model>", "top": "<model>" },
+  "jobs": { "escalation.first": "routine", "escalation.second": "top" },
+  "propose_promotion_below": 0.6, "on_top_limit": "queue-design-jobs" }
+```
+
+- **Precedence:** a project may override a job's tier in its `spec/project.json`; otherwise the platform table applies. Models per tier are in [4-choices.md](4-choices.md) (E15).
+- **Human side:** the founder edits the file by pull request; before P3 that is the only way, after it the control center opens the same pull request. In a session, the founder switches the model with the tool's own command.
+- **Machine side:** the control plane serves the table at `/api/v1/routing` (read-only). When a job kind's solve rate at its tier falls below `propose_promotion_below` (or stays high a tier up), it opens a pull request changing that row, with the run records as evidence. It never applies one.
+- Every run record names the tier, the row that chose it and the model used.
 
 ## Work tracking
 
@@ -181,7 +204,7 @@ docs/                  1-methodology … 5-roadmap
 go.mod                 module github.com/briolink/briolink (E1)
 cmd/control/           composition root: control plane + control center
 cmd/assess/            composition root: assessment worker
-spec/                  the control plane's own spec
+spec/                  the control plane's own spec, and routing.json (Routing)
 tasks/                 task contracts
 port/                  one interface per role, with contract tests
 adapter/<role>/<name>/ provider implementations

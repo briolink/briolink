@@ -112,7 +112,7 @@ Work is cut into **bounded tasks**. Each has a **contract**, stored as a file ne
 
 *Choices: M1, M11.* The human's attention is the scarcest resource, then the reasoner's tokens; generators and the coder cost nearly nothing per run.
 
-- **Cheapest executor that can pass:** generator → coder → reasoner at its lowest sufficient tier → human. Whatever can be derived from the model goes to a generator, never to a model. Run records set the tier per job kind.
+- **Cheapest executor that can pass:** generator → coder → reasoner at its lowest sufficient tier → human. Whatever can be derived from the model goes to a generator, never to a model. A routing table, readable and editable by the human, sets the tier per job kind; run records only propose changes to it.
 - **Compact input:** the job's model slice, its tests, the last attempt in full and earlier attempts as their failing test names; no docs the executor doesn't need. Stable parts come first and the variable parts last, so repeated prefixes are cached.
 - **Fresh threads:** a job starts from its compact input; a thread is resumed only inside one job (an escalation's retry, one spec dialogue).
 - **Lasting fixes first:** an escalation fixes the test, the model or the task's cut before it writes code, so the coder passes the next one. Glue the reasoner writes twice becomes a generator template or a plugin.
@@ -137,6 +137,15 @@ Work is cut into **bounded tasks**. Each has a **contract**, stored as a file ne
 | High | Production migrations, DNS, payment rules, deletions, secret or access changes | Human approval with impact, backup and rollback plan, recorded |
 
 A model's confidence never lowers a risk level.
+
+## Shared control
+
+*Choice: M13.* Machine and human drive the same system through the same controls.
+
+- Every setting a machine acts on (routing, tiers, budgets, retry limits, thresholds) is data the human can read and change, in the same place and through the same interface the machine uses. There is no machine-only file, endpoint or flag.
+- A machine may propose a change to a setting, with its evidence; the human approves it. No executor changes the settings that govern it.
+- Every automatic decision records the setting that decided it, so the human can see why and change it.
+- Whatever the human can trigger by hand, a machine can be allowed to trigger, and the reverse, each within the risk policy.
 
 ## Data and trust
 

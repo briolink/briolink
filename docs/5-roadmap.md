@@ -39,7 +39,7 @@ Each tests one assumption; a failure changes only the area in brackets.
 - [ ] Port contract tests pass on two object-storage adapters [ports]
 - [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
 - [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
-- [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; sets the routing in E15 [reasoner]
+- [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; proposes the first changes to `spec/routing.json` [reasoner]
 - [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]
 
 **Hosting (H1)**
