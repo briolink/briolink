@@ -30,7 +30,7 @@ Read only what your task needs.
 1. **Done means verified.** Checks pass and the evidence is attached; a model saying it is finished counts for nothing.
 2. **Code roles (M1):** generators write the plumbing (never edit `gen/`); the coder model writes pure functions through the runner; the reasoner writes models, tests and generator templates, and takes escalations; no other model writes code.
 3. **Agnostic at the edges (A1, A2):** core code depends on ports, never on a provider; adapters live in `adapter/` and only the composition root wires them, from config; providers are named only in [choices.md](docs/choices.md), in the roadmap's spikes and in their adapters; a new binding comes with its fallback and exit.
-4. **Libraries (A6):** standard library first; a third-party library only when needed and strong, vendored and listed in choices. Front end: vanilla JS modules, no frameworks (E3).
+4. **Libraries (A6):** everywhere, standard library first and no frameworks; a third-party library only when needed, strong and under a permissive licence allowing commercial use (MIT, BSD, Apache-2.0, ISC; never copyleft); vendored and listed in choices.
 5. **Everything is a plugin (A5):** generic capabilities with options, tests and a README, never one client's case.
 6. **The founder approves high-risk actions:** production migrations, DNS, payment rules, deletions, credential or access changes.
 7. **Automation never holds production write credentials.** Production changes only when the founder moves a protected branch or tag; servers pull.
