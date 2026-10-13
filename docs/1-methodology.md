@@ -1,6 +1,6 @@
 # Methodology
 
-How Briolink builds software with AI. This layer names no tool, language, model or provider: it can be executed in many shapes. Briolink's shape is in [architecture.md](architecture.md), and the choices behind it are in [choices.md](choices.md).
+How Briolink builds software with AI. This layer names no tool, language, model or provider: it can be executed in many shapes. Briolink's shape is in [2-architecture.md](2-architecture.md), and the choices behind it are in [4-choices.md](4-choices.md).
 
 ## The loop
 
@@ -39,7 +39,7 @@ Four structures, in this order, each feeding the next.
   Only the pure function is hand-written. It takes values and returns values or decisions: no I/O, no clock, no randomness (time and random values are passed in).
 - Anything that doesn't fit this shape (streaming, uploads, external calls, rendering) is a **generic plugin**, specified once and reused, never written inside one project.
 
-Why: coder models pass pure functions under tests and fail on glue code ([choices.md](choices.md#methodology), M2). Generators remove the glue.
+Why: coder models pass pure functions under tests and fail on glue code ([4-choices.md](4-choices.md#methodology), M2). Generators remove the glue.
 
 ### 2. Statecharts: how it behaves
 
@@ -50,7 +50,7 @@ A statechart is checked before anything is built:
 - every (state, event) pair is either a transition or explicitly forbidden;
 - every guard and action names a pure function in the model.
 
-Statecharts are what makes tests derivable. They also describe journeys: a journey is a path through one or more statecharts, which gives end-to-end tests, and an assessment of an existing site maps its workflows into the same form ([architecture.md](architecture.md#assess)).
+Statecharts are what makes tests derivable. They also describe journeys: a journey is a path through one or more statecharts, which gives end-to-end tests, and an assessment of an existing site maps its workflows into the same form ([2-architecture.md](2-architecture.md#assess)).
 
 ### 3. Model-driven development: what is generated
 
@@ -65,7 +65,7 @@ The model is the source; code follows from it.
 | Project (plugins and options) | The wiring |
 
 - Generated code is marked as such and never edited. A check regenerates it and fails on any difference.
-- The model is stored as strictly decoded structured data, validated by code ([choices.md](choices.md#methodology), M4). Humans review it rendered, not raw.
+- The model is stored as strictly decoded structured data, validated by code ([4-choices.md](4-choices.md#methodology), M4). Humans review it rendered, not raw.
 - What is sent to a model is only the task's slice of the model, plus trimmed failure output.
 
 ### 4. Test-driven development: the proof

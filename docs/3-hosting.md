@@ -1,6 +1,6 @@
 # Hosting
 
-How the **Host** offer runs: serving, servers, backups, failover, trials and operations. Roles are in [architecture.md](architecture.md#roles-and-adapters); today's providers and the reasons are in [choices.md](choices.md).
+How the **Host** offer runs: serving, servers, backups, failover, trials and operations. Roles are in [2-architecture.md](2-architecture.md#roles-and-adapters); today's providers and the reasons are in [4-choices.md](4-choices.md).
 
 **Fit:** a site that is mostly something to show, plus forms, orders, bookings or live features; a database up to ~10 GB; tolerance of ~1 s of data loss and a few minutes' outage of live features (public pages stay up); at most hundreds of writes a second. **Decline:** zero-downtime contracts needing several writing servers, very high write volume, regulated data (medical records, banking, stored card data), hosting that must stay in one country, clients keeping their old CMS and its plugins.
 
@@ -205,7 +205,7 @@ If the shared server fails for any reason, including the provider closing the ac
 | Start | Restore each database from the local copy, start the pods | ~1–2 min for 150 |
 | Reroute | The edge's DNS API points each API hostname at the ops host's tunnel | Seconds |
 
-Two servers can never write at once, and failover depends neither on the private network nor on the failed server. A lease store outage is open decision O11 ([roadmap.md](roadmap.md#open-decisions)). **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
+Two servers can never write at once, and failover depends neither on the private network nor on the failed server. A lease store outage is open decision O11 ([5-roadmap.md](5-roadmap.md#open-decisions)). **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
 
 ## Trials (A15)
 
@@ -261,7 +261,7 @@ Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers �
 | Bake queue | 1 min | Pending > 10 min, or a failure |
 | Running digest vs latest tag, servers and ops host | On change | Failed deploy, rollback, standby out of sync |
 | Provider quotas (storage, operations, function requests, backup) | 1–6 h | Over 70% of a free limit |
-| Provider rules (e.g. idle reclaim, [choices.md](choices.md#e9--oracle-cloud-a1)) | 1 h | Per provider |
+| Provider rules (e.g. idle reclaim, [4-choices.md](4-choices.md#e9--oracle-cloud-a1)) | 1 h | Per provider |
 | Server health pushed over the network: disk, memory per pod, updates, reboot | 5 min | Disk > 80%, a pod at its cap, updates > 7 days |
 | Private network handshake per peer | 5 min | Older than 5 min |
 | Promote trends, trial pool | Daily, 1 h | A client should move up; pool > 80% |
@@ -278,7 +278,7 @@ Until the first client launches, everything is created by hand and logged in the
 ## Data protection
 
 Not legal advice: check each client's local law before any real personal data is collected; previews and trials with test data come first.
-- The client is the **controller**; Briolink is the **processor**; its compute, ops host and model providers are subprocessors. The client contracts directly with its edge and backup providers. Providers and locations come from [choices.md](choices.md) and the operator config.
+- The client is the **controller**; Briolink is the **processor**; its compute, ops host and model providers are subprocessors. The client contracts directly with its edge and backup providers. Providers and locations come from [4-choices.md](4-choices.md) and the operator config.
 - **The processing agreement covers:** subject, duration, purpose, data categories and subjects; instructions-only processing; lasting confidentiality; a security annex built from this doc; subprocessors with advance notice and a right to object; breach notice within an agreed deadline (e.g. 48 h) and help with data subjects' requests; retention and deletion per category; the exit (final database export, image masters, keys; Briolink's copies deleted within 30 days; the repo and runbook let the client run alone); the service level above; a liability cap and a yearly report.
 - **Special cases:** avoid storing ID scans unless required (then the private bucket with its own retention); minors need parental consent; health means appointment requests only, never medical records; client privacy policies name the processors and locations.
 - Evidence and deletion duties: A19.

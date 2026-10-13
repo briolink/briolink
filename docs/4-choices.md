@@ -1,6 +1,6 @@
 # Choices
 
-Every fixed decision and why, in one place, current state only. IDs are stable: **M** for the methodology ([methodology.md](methodology.md)), **A** for the architecture ([architecture.md](architecture.md)), **E** for the execution (our stack and providers). To change a choice, edit its row and the doc it points to; a new choice takes the next free ID in its group. Other docs cite IDs and never repeat the reason.
+Every fixed decision and why, in one place, current state only. IDs are stable: **M** for the methodology ([1-methodology.md](1-methodology.md)), **A** for the architecture ([2-architecture.md](2-architecture.md)), **E** for the execution (our stack and providers). To change a choice, edit its row and the doc it points to; a new choice takes the next free ID in its group. Other docs cite IDs and never repeat the reason.
 
 ## Methodology
 
@@ -77,7 +77,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 
 ## Bindings in detail
 
-Each entry: **fallback** (how we keep working while it fails, prepared in advance) and **exit** (the replacement). Open checks are in [roadmap.md](roadmap.md#spikes).
+Each entry: **fallback** (how we keep working while it fails, prepared in advance) and **exit** (the replacement). Open checks are in [5-roadmap.md](5-roadmap.md#spikes).
 
 ### E5–E7 · Cloudflare (edge, object storage, lease)
 
@@ -131,17 +131,17 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 - **Sharing:** Ollama runs on Windows (the model mostly in the GPU's 16 GB, ~2 GB spilled to RAM). CPU is the contended resource: on a takeover the script pauses the workers and lowers Ollama's priority and threads. The failover drill runs while the model generates.
 - **Hub:** UDP 51820 forwarded on the router; `wg.<brand domain>` kept current by a DDNS job. If the ISP uses CGNAT, the hub moves to a €3–5 VPS.
 - **Location:** kept in the operator config, not here. The ISP's terms must allow a short-term fallback server and a hub.
-- **Fallback:** client sites don't depend on it. The control plane's data is replicated off the machine ([hosting.md](hosting.md#control-plane)); rent a VPS and restore it, moving the hub too. Logic tasks queue until a GPU is back. While it is down the shared server has no standby; if both fail, fail over by hand onto the fallback VPS account. **Exit:** any always-on Linux machine with a GPU, owned or rented, or the coder on a separate GPU host over the private network.
+- **Fallback:** client sites don't depend on it. The control plane's data is replicated off the machine ([3-hosting.md](3-hosting.md#control-plane)); rent a VPS and restore it, moving the hub too. Logic tasks queue until a GPU is back. While it is down the shared server has no standby; if both fail, fail over by hand onto the fallback VPS account. **Exit:** any always-on Linux machine with a GPU, owned or rented, or the coder on a separate GPU host over the private network.
 
 ### E13 · GitHub
 
 | Contract item | Feature |
 | --- | --- |
 | Protected branches, required reviews | Branch protection on `main` and `production`; `CODEOWNERS` makes the founder owner of `tasks/` and `spec/` |
-| Work tracking | Issues, the standard labels ([architecture.md](architecture.md#work-tracking)), milestones per stage, sub-issues for split tasks |
+| Work tracking | Issues, the standard labels ([2-architecture.md](2-architecture.md#work-tracking)), milestones per stage, sub-issues for split tasks |
 | CI on tags | Actions: `ci.yml` (vet, tests, JS lint, contract test), `release.yml` (on tag: tests, multi-arch image, attestation) |
 | Registry with attestations | GHCR; a cleanup step keeps the last 10 versions (private storage is limited on Free) |
-| Keys | Fine-grained tokens, one repo each, with the scopes in [hosting.md](hosting.md#control-plane) |
+| Keys | Fine-grained tokens, one repo each, with the scopes in [3-hosting.md](3-hosting.md#control-plane) |
 
 - **Provisioned per client:** the repo from the template, branch protection, required reviews, `CODEOWNERS`, the labels, Actions variables.
 - **Fallback:** the ops host keeps a mirror of every repo (`git clone --mirror`, every few minutes) and a nightly JSON export of issues, comments, labels and milestones in Briolink's ops bucket. During an outage running sites are unaffected; the runner works on held tasks from the mirror and pushes later; an urgent fix can be built on the ops host and loaded with `podman save` / `podman load` over the private network, with the founder's approval.

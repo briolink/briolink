@@ -1,6 +1,6 @@
 # Architecture
 
-Briolink's shape for running the [methodology](methodology.md). It names roles, never providers: today's providers and the reasons for every choice are in [choices.md](choices.md).
+Briolink's shape for running the [methodology](1-methodology.md). It names roles, never providers: today's providers and the reasons for every choice are in [4-choices.md](4-choices.md).
 
 Briolink sells three offers on one pipeline, in this order: **Assess** an existing site, **Build** (modernize it or build a new app from a spec), **Host** the result. Each qualifies the client for the next.
 
@@ -11,7 +11,7 @@ Briolink sells three offers on one pipeline, in this order: **Assess** an existi
 - Core code depends on **ports** only: small interfaces named after their role (`ObjectStore`, `Edge`, `Coder`…), each with contract tests an adapter must pass before it can be bound.
 - Adapters live in `adapter/<role>/<provider>/`; only the composition root (`cmd/*`) imports them, wired from the installation's operator config (`operator.json`). Secrets are kept apart.
 - Standard protocols over vendor APIs wherever one exists: S3, SMTP, WireGuard, OCI, Git, SQL, HTTP.
-- A deep binding uses provider features only inside its adapter or the provider's own config files (CI workflows, edge rules). Its entry in [choices.md](choices.md#bindings-in-detail) lists every feature relied on, its fallback and its exit; what it holds stays exportable in a standard form and is copied to infrastructure we control.
+- A deep binding uses provider features only inside its adapter or the provider's own config files (CI workflows, edge rules). Its entry in [4-choices.md](4-choices.md#bindings-in-detail) lists every feature relied on, its fallback and its exit; what it holds stays exportable in a standard form and is copied to infrastructure we control.
 - Variation is data: brand (name, domains, look), sector templates, and each client's spec and accounts.
 
 | Role | Contract | Used by |
@@ -38,7 +38,7 @@ Briolink sells three offers on one pipeline, in this order: **Assess** an existi
 
 *Choices: A3.*
 
-One Go binary on the ops host, reachable only over the private network ([hosting.md](hosting.md#control-plane)): an HTTP JSON API (`/api/v1`) plus Server-Sent Events. The control center UI, CI and any later client call the same endpoints and hold no logic. The API itself is built by our generators from a route spec.
+One Go binary on the ops host, reachable only over the private network ([3-hosting.md](3-hosting.md#control-plane)): an HTTP JSON API (`/api/v1`) plus Server-Sent Events. The control center UI, CI and any later client call the same endpoints and hold no logic. The API itself is built by our generators from a route spec.
 
 ```text
 Control plane: API + events (ops host)
@@ -83,7 +83,7 @@ From the first code on, each repo's issues are its tasks:
 - The control plane reaches issues only through the code host port and exposes tasks as `/api/v1/tasks`, so a code host swap changes one adapter. Contracts are files, so the runner keeps working from the repo mirror while the code host is down.
 - A client's issue is a request: the reasoner turns it into a contract, which the founder approves.
 
-**Until the runner exists** (P0), agents run the same flow by hand: pick an open issue in the current milestone with no `state:blocked` label and closed dependencies; read its contract (or, for docs, spikes and decisions, the issue's stated outcome); work on a branch; open a pull request with `Closes #<n>` and the evidence, including what was not verified. A spike closes with its measured answer; a decision closes with a row in [choices.md](choices.md).
+**Until the runner exists** (P0), agents run the same flow by hand: pick an open issue in the current milestone with no `state:blocked` label and closed dependencies; read its contract (or, for docs, spikes and decisions, the issue's stated outcome); work on a branch; open a pull request with `Closes #<n>` and the evidence, including what was not verified. A spike closes with its measured answer; a decision closes with a row in [4-choices.md](4-choices.md).
 
 ## Specs and generators
 
@@ -169,13 +169,15 @@ Both pass the specification gate, then the founder's approval, the pipeline, a p
 
 ## Host
 
-Serving, servers, backups, failover, trials and operations: [hosting.md](hosting.md).
+Serving, servers, backups, failover, trials and operations: [3-hosting.md](3-hosting.md).
 
 ## This repo
 
 ```text
+README.md              for humans
 AGENTS.md              entry point for any agent (CLAUDE.md only imports it)
-docs/                  methodology, architecture, choices, hosting, roadmap
+agents/                one brief per agent role: what to read, role-only rules
+docs/                  1-methodology … 5-roadmap
 go.mod                 module github.com/briolink/briolink (E1)
 cmd/control/           composition root: control plane + control center
 cmd/assess/            composition root: assessment worker

@@ -1,5 +1,7 @@
 # Roadmap
 
+**Now (2026-10-13):** design, committed straight to `main`; next, P0.
+
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
 ## Stages
@@ -19,7 +21,7 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 
 ## Checklist
 
-- [x] An account with 2FA (and a card where needed) for each binding in [choices.md](choices.md#bindings)
+- [x] An account with 2FA (and a card where needed) for each binding in [4-choices.md](4-choices.md#bindings)
 - [x] Repo at `briolink/briolink`
 - [ ] When the first code lands: branch protection on `main`, `CODEOWNERS`, labels, milestones per stage; then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
 - [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
