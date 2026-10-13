@@ -1,98 +1,194 @@
-# Architecture: roles, adapters, headless control
+# Architecture
 
-**Opinionated inside, agnostic at the edges (decision 65).**
-- **Inside:** our own code (Go, SQLite, vanilla JS, the generators, the core and plugins) is a fixed choice. Inside, capabilities are plugins chosen per project ([platform.md](platform.md#plugins)).
-- **At the edges:** everything else (providers, machines, models, brand, markets, sectors, clients) is a **role** with a contract. A swappable **adapter** fills each role, chosen by configuration.
+Briolink's shape for running the [methodology](methodology.md). It names roles, never providers: today's providers and the reasons for every choice are in [choices.md](choices.md).
 
-Nothing in the core names a provider. Today's choices are listed in [bindings.md](bindings.md).
+Briolink sells three offers on one pipeline, in this order: **Assess** an existing site, **Build** (modernize it or build a new app from a spec), **Host** the result. Each qualifies the client for the next.
 
-## Rules
+## Roles and adapters
 
-1. **Core code depends on ports only.**
-   - A port is a small Go interface named after its role (`ObjectStore`, `Edge`, `Coder`…).
-   - Adapters implement ports in `adapter/<role>/<provider>/`.
-   - Only the composition root (`cmd/*`) imports adapters, and it wires them from config.
-2. **Configuration, not code, picks providers.** Each installation has one operator config (`operator.json`) holding the brand, the domains, and the adapter and settings for each role. Secrets are kept separately.
-3. **Headless.**
-   - The control plane is an HTTP JSON API (`/api/v1`) plus an event stream (Server-Sent Events).
-   - The control center UI, CI and any future client (mobile, chat) are API clients with no logic of their own.
-4. **Standard protocols over vendor APIs** wherever one exists: S3 for storage, SMTP or HTTP for mail, WireGuard, OCI images, Git, SQL, HTTP. An adapter is often just config for a standard client.
-5. **Variation is data, not code:**
-   - markets: currency, languages, price list, legal filing templates;
-   - sectors: templates;
-   - clients: spec plus bindings, in their own repo;
-   - brand: name, domains, look.
-6. **Contract tests per port.**
-   - An adapter must pass its port's contract tests before it can be bound.
-   - The serving contract test that runs against both preview and trials is the first example.
-7. **Replicable.**
-   - An installation is the repo, an operator config, secrets and an ops host.
-   - A partner, a new region or a white-label brand stands up its own installation with the same scripts.
-   - It is built for one operator today, with nothing that prevents a second.
-8. **Docs follow the same split:**
-   - generic docs speak in roles;
-   - [bindings.md](bindings.md) names the current choices;
-   - [adapters/](adapters/) holds each provider's specifics.
-   Docs are plain Markdown that any tool or agent can read, and `AGENTS.md` is the entry point.
+*Choices: A1, A2.*
 
-## Roles
+- Core code depends on **ports** only: small interfaces named after their role (`ObjectStore`, `Edge`, `Coder`…), each with contract tests an adapter must pass before it can be bound.
+- Adapters live in `adapter/<role>/<provider>/`; only the composition root (`cmd/*`) imports them, wired from the installation's operator config (`operator.json`). Secrets are kept apart.
+- Standard protocols over vendor APIs wherever one exists: S3, SMTP, WireGuard, OCI, Git, SQL, HTTP.
+- A deep binding uses provider features only inside its adapter or the provider's own config files (CI workflows, edge rules). Its entry in [choices.md](choices.md#bindings-in-detail) lists every feature relied on, its fallback and its exit; what it holds stays exportable in a standard form and is copied to infrastructure we control.
+- Variation is data: brand (name, domains, look), sector templates, and each client's spec and accounts.
 
-| Role (port) | Contract: what the core needs | Used by |
+| Role | Contract | Used by |
 | --- | --- | --- |
-| Edge | DNS API; static hosting with a small request function in front of object storage; a public custom domain on a bucket; an outbound-only tunnel to the origin; an access gateway for staff and previews; a bot challenge; rate limiting; an edge cache that honours origin `Cache-Control` | Client sites |
-| Object storage | S3 subset: PUT with metadata, conditional GET, HEAD, DELETE, list, presigned GET and PUT | Baking, uploads, private files, trials, artifacts |
-| Lease store | A conditional write (compare-and-swap) on one object | Failover |
-| Offsite backup | An S3-compatible bucket in the client's own account; keys that can list and write but not delete; lifecycle expiry | Database replicas, nightly copies |
-| Compute | A Linux host (arm64 or amd64) with systemd, rootless containers and cgroup v2; a provider API that can stop an instance | Client pods, trial system |
-| Ops host | An always-on machine for the control plane, the warm standby, the coder model and the network hub | Operator side |
+| Edge | DNS API; static hosting with a small request function in front of object storage; a public domain on a bucket; an outbound-only tunnel; an access gateway; a bot challenge; rate limiting; an edge cache honouring origin `Cache-Control` | Client sites |
+| Object storage | S3 subset: PUT with metadata, conditional GET, HEAD, DELETE, list, presigned GET and PUT | Baking, uploads, trials, evidence |
+| Lease store | A conditional write on one object | Failover |
+| Offsite backup | An S3-compatible bucket in the client's account; keys that list and write but can't delete; lifecycle expiry | Database replicas, nightly copies |
+| Compute | A Linux host (arm64 or amd64) with systemd, rootless containers, cgroup v2; an API that can stop an instance | Client pods, trials |
+| Ops host | An always-on machine for the control plane, the warm standby, the coder and the network hub | Operator side |
 | Private network | An encrypted peer network that servers dial out to | Admin access, replicas, metrics |
-| Code host | Git with protected branches and required reviews by code owners; CI on tags; a container registry with build attestations and read-only pull tokens; issues with labels and milestones, readable and writable through an API | Client repos, deploys, work tracking and code approvals (decision 75) |
-| Coder model | Runs locally with no per-token cost; turns a task contract into code | Runner |
-| Reasoner model | Specs, tests and escalations; structured output; cost reporting | Runner, Specifications area |
+| Code host | Git with protected branches and required reviews by code owners; issues with labels and milestones through an API; CI on tags; an OCI registry with attestations and read-only pull tokens | Repos, work tracking, approvals, deploys |
+| Coder model | Local, no per-token cost; turns a task contract into code | Runner |
+| Reasoner model | Structured output, cost reporting | Runner, specifications |
 | Notifier | Push alerts, de-duplicated, with a fallback channel | Control plane |
-| External pinger | A dead-man's switch outside our infrastructure | Monitoring, failover detection |
+| External pinger | A dead-man's switch outside our infrastructure | Monitoring, failover |
 | Mail sender | Transactional e-mail with SPF and DKIM | Client apps |
 | Provisioning | Declarative infrastructure with encrypted state | Client and platform resources |
 | Crawler tools | Browser automation, lab performance, accessibility checks | Assessment workers |
 
-## Binding depth and fallbacks
+**An installation** is the repo, an operator config, secrets and an ops host. Another installation (region, white-label) stands up from the same scripts.
 
-Agnostic doesn't mean shallow (decision 76). A binding has a **depth**, and every binding, deep or thin, has a **fallback** and an **exit**.
+## Control plane
 
-| Depth | Meaning | Roles today |
+*Choices: A3.*
+
+One Go binary on the ops host, reachable only over the private network ([hosting.md](hosting.md#control-plane)): an HTTP JSON API (`/api/v1`) plus Server-Sent Events. The control center UI, CI and any later client call the same endpoints and hold no logic. The API itself is built by our generators from a route spec.
+
+```text
+Control plane: API + events (ops host)
+  projects · specs · tasks · runner · approvals · assessments · gates · infrastructure
+  ├── Runner → Coder port · Reasoner port
+  ├── Build workers: one offline container per task (generate, build, test, mutate)
+  └── Assessment workers: containers with restricted egress (crawler tools)
+Evidence: run records in the control plane's database + artifacts in object storage
+Release: preview → founder approval → production (pulled deploys)
+```
+
+| Component | Does | Never |
 | --- | --- | --- |
-| **Thin** | The adapter is mostly config for a standard protocol (S3, SMTP, WireGuard, OCI, an HTTP model API). Swapping is a config change plus the contract tests | Object storage, lease store, offsite backup, compute, ops host, private network, coder model, notifier, external pinger, mail sender, provisioning |
-| **Deep** | We use the provider's full feature set on purpose, because building it ourselves would cost more than leaving later. Chosen only for large, stable providers. Leaving is painful but planned | Edge, code host, reasoner model |
+| Control plane | Projects, specs, task dispatch, scope rules, approvals outside a repo, audit log, scheduling, monitoring | Delegates authorisation to a model; holds production write keys |
+| Runner | Executes task contracts | Changes acceptance criteria or skips a check |
+| Build workers | One task in one workspace | Reach the network; touch files outside the task |
+| Assessment workers | Crawling, browser tests, measurements | Reach private networks; change a target's state without authorisation |
 
-**What a deep binding still owes the core:**
-- The core reaches it through its port only. Provider features are used inside the adapter, or in the provider's own config files (CI workflows, edge rules), never in core code.
-- Its adapter doc lists every provider feature we rely on, mapped to the role's contract, so the exit has a known size.
-- What it holds that we need stays exportable in a standard form (Git, JSON, S3 objects, OCI images), and is copied to infrastructure we control.
+On a failover takeover the workers pause and the coder's priority drops. A command-line entry point exists only for CI and debugging, and it calls the API too.
 
-**Fallback and exit are different things:**
-- **Fallback:** how we keep working, possibly degraded, while the binding is down or the account is lost. It is prepared in advance, like the ops host standing in for the shared server ([servers.md](servers.md#failover)).
-- **Exit:** the replacement we would move to for good, and what it must provide (each adapter doc's swap notes).
+**Control center** (the UI, P3): login, projects, the specifications area (founder ↔ reasoner), the work queue and live runner views (prompt, diff, check output, retries, escalations, cost), approvals for actions outside a repo (evidence and data deletions), assessments, quality gates, infrastructure checks.
 
-Today's fallback for each role is listed in [bindings.md](bindings.md#if-a-binding-fails); the details are in each adapter doc.
+## Runner
 
-**Part of the product, not roles:** Go, SQLite and its driver, Litestream, Podman + Quadlet, vanilla JS and esbuild, our generators, the app core and the plugin catalog.
+The methodology's loop, as a module of the control plane:
+1. Create a workspace (a git worktree) in a build container with no network.
+2. Send the coder, through its port: the contract, the function signature, its documentation, the tests and the last failure output.
+3. Apply the returned code to the allowed files only; anything else is rejected.
+4. Run the checks: `gofmt`, `go vet`, regenerate-and-diff, `go test`, the mutation check.
+5. **Pass:** record it, open a pull request that closes the task's issue, post an attempt summary on the issue (no cost figures: client repos are visible to the client). **Fail:** retry with the failure output until the budget is spent.
+6. Escalate to the reasoner with every attempt; the same checks apply to its answer.
+7. Escalate to the founder: the issue gets `state:needs-founder` and is assigned, with a link to the full history.
 
-## Headless control plane
+## Work tracking
 
-- **API first:** every action (create a project, approve a spec, run a task, answer an escalation, trigger a re-bake) is an API call, and the UI calls the same endpoints. The API itself is built by our own generators from a route spec.
-- **Events:** task attempts, check results and alerts stream as Server-Sent Events. The UI subscribes to them, and so can any other client.
-- **Services behind the API:**
-  - scheduler, runner and monitors;
-  - the failover component, a separate process with its own credentials;
-  - assessment and build workers.
-- **No logic in clients:** the UI renders; it never decides.
+*Choices: A4, M8.*
 
-## Replicating
+From the first code on, each repo's issues are its tasks:
+- One issue per task, linking `tasks/<id>.json`; milestones follow the roadmap stages; a split task becomes sub-issues.
+- **Labels:** `kind:logic|spec|test|plugin|docs|spike|decision`, `risk:low|medium|high`, `state:queued|running|needs-reasoner|needs-founder|blocked`. Done means closed by its pull request.
+- The founder owns `tasks/` and `spec/` as code owner; code is approved by pull-request review on protected branches.
+- The control plane reaches issues only through the code host port and exposes tasks as `/api/v1/tasks`, so a code host swap changes one adapter. Contracts are files, so the runner keeps working from the repo mirror while the code host is down.
+- A client's issue is a request: the reasoner turns it into a contract, which the founder approves.
 
-| To replicate | You provide | You get |
+**Until the runner exists** (P0), agents run the same flow by hand: pick an open issue in the current milestone with no `state:blocked` label and closed dependencies; read its contract (or, for docs, spikes and decisions, the issue's stated outcome); work on a branch; open a pull request with `Closes #<n>` and the evidence, including what was not verified. A spike closes with its measured answer; a decision closes with a row in [choices.md](choices.md).
+
+## Specs and generators
+
+| File | Holds | Generator |
 | --- | --- | --- |
-| A client | A spec (plugins + options) and the client's own accounts (edge, offsite backup, code host) | Their app from the template, on the same pipeline and hosting |
-| A market | A file from [markets/_template.md](markets/_template.md) and a partner | Local prices, currency, languages, legal filing templates |
-| A capability | A generic plugin, specified by the architect and built by the pipeline | A catalog entry any later project can pick |
-| A provider | An adapter (code, plus a doc from [adapters/_template.md](adapters/_template.md)) that passes the role's contract tests | A swap by changing one binding |
-| The whole platform | The repo, an operator config, secrets and an ops host | Another installation (partner, region, white-label) |
+| `spec/project.json` | Plugins and their options | Wiring |
+| `spec/domain/<context>.json` | One bounded context: glossary, entities and invariants, statecharts, pure function signatures and rules | `domaingen`: types, transition tables, dispatchers, stubs, derived tests |
+| `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `apigen`: handlers, validation, route table, typed structs |
+| `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result | `sqlgen`: typed functions, schema check test |
+
+Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker (`quality/mutate`) is our own, built on `go/ast`.
+
+## App core and plugins
+
+*Choices: A5.*
+
+A client app is a **minimal core plus the plugins its project picks**. The core: the plugin registry and lifecycle, config loading and validation, the migration runner, the runtime the generated code targets.
+
+Each plugin solves a generic capability (never one client's case), ships a manifest (name, version, purpose, options with defaults, ports needed, plugins depended on, contributed spec fragments, migrations, templates, front-end modules), and has its own tests, contract tests, README and semantic version.
+
+- The **architect** (the reasoner, approved by the founder) picks plugins and options into `spec/project.json`; generators write the wiring; plugins are compiled in.
+- Each client repo receives only its plugins; the control plane syncs updates version by version.
+- A missing capability is specified as a generic plugin, built by the pipeline, and joins the catalog.
+
+**Initial catalog** (P1):
+
+| Plugin | Capability | Options (examples) |
+| --- | --- | --- |
+| `http` | Routing on `net/http` patterns, JSON, errors | Base path, error format |
+| `session` | Server-side sessions, `__Host-` cookie, rotation at login | Lifetimes per role |
+| `auth` | Accounts and login: password (argon2id), TOTP, roles | Which methods are on |
+| `origin` | Exact-origin CORS, `http.CrossOriginProtection` plus the Origin check | Allowed origins |
+| `storage` | SigV4 client for the object-storage contract | Buckets per purpose |
+| `media` | Uploads through the API, derived images, private files (A18) | Formats, codec, thumbnail and derived sizes, EXIF policy, buckets |
+| `mail` | Transactional e-mail through the mail port | Sender, templates |
+| `bake` | Outbox, planner, renderer, publisher | What gets baked, index split size |
+| `live` | Live JSON for fast-changing state | TTL, paths |
+| `tenancy` | Tenant from the hostname, per-tenant database and storage | Hostname pattern, open-database cap |
+
+## Assess
+
+A deterministic evidence collector; interpretation comes afterwards. A Go worker drives the crawler tools inside its container (P2).
+
+**Collects:**
+- **Routes:** `robots.txt`, sitemaps, internal links, client-side navigation; templates, redirects, canonicals, broken links.
+- **Interactive surface:** controls and their accessible names, modals, tabs, menus, validation messages. Forms only under explicit authorisation; never payments, orders, real accounts or irreversible actions outside a test environment.
+- **Workflows** as graphs of states and actions with guards and outcomes, observed or inferred (with confidence). They become draft statecharts for a modernization.
+- **Performance:** lab runs, field data where it exists, Core Web Vitals with tool versions, headers, compression, sizes; mobile and desktop.
+- **Accessibility:** automated checks per page and state, plus keyboard and focus where feasible; reported as partial.
+
+**Coverage, honestly:** never claim 100%. Each dimension shows numerator, denominator and exclusions; a page counts as tested only if more than its first load was checked.
+
+| Dimension | Status values |
+| --- | --- |
+| Routes | discovered / tested / passed / failed / blocked / unverified |
+| Templates | identified / sampled / validated / unverified |
+| Interactive elements | discovered / exercised / passed / failed / untested |
+| Workflows | mapped / tested / passed / failed / unverified |
+| States | observed / reached / validated / unreachable |
+| Performance (page × device) | measured / regressed / within target / unavailable |
+| Accessibility | scanned / issues found / reviewed / unverified |
+
+Every report also lists scope and exclusions, environment and tool versions, the authentication role, network failures, skipped interactions and blind spots. Records stay separate: **observation** (a tool recorded it), **finding** (interpretation backed by observations), **hypothesis** (not verified), **decision** (approved, with owner and date).
+
+**Output contract** (a versioned Go type, decoded strictly): `schema_version`, `assessment_id`, `project_id`, `scope{…}`, `environment{…}`, `coverage{…}`, `routes`, `interactions`, `workflows`, `performance_results`, `accessibility_findings`, `technical_inventory`, `findings`, `limitations`, `recommended_tasks`, `artifact_refs`. Binary artifacts stay outside, referenced by ID.
+
+**Safe crawling:**
+- Record the authorisation before anything beyond ordinary passive access; show the approved hosts, paths, accounts and actions; enforce rate limits and budgets; keep a stop control and an audit trail of scope changes.
+- **SSRF:** HTTP and HTTPS only; resolve every hostname and reject private, loopback, link-local, multicast, CGNAT and reserved ranges, metadata addresses, the private network and the control plane; re-check after each redirect, pin the resolved IP; an egress filter as second boundary; time, size, redirect and per-host limits. Its test suite comes before crawling grows.
+- **Browsers:** disposable containers with storage per client; downloads and dangerous protocols off; page content is untrusted.
+
+## Build
+
+Two entry paths into the same pipeline:
+- **Existing site:** an assessment's evidence becomes a backlog, which the reasoner turns into specs.
+- **New app:** from the idea, users, journeys, roles, rules, entities, integrations and constraints, the reasoner clarifies and writes the model and tests.
+
+Both pass the specification gate, then the founder's approval, the pipeline, a preview, and a release.
+
+**Gates** (by project type): format and vet, regenerate-and-diff, unit tests and mutation check, integration tests, browser end-to-end tests on critical journeys, secret scanning, accessibility, performance against a baseline, migration checks with a recovery plan, security checks in scope.
+
+**Release:** runner → preview (each client's staging, A14) → founder approval → production (pulled deploy, health checks, automatic rollback) → smoke tests and close watching. A change ships when its criteria hold, its checks pass or an exception is approved, its diff and evidence can be reviewed, its rollback is written and its approvals are recorded.
+
+## Host
+
+Serving, servers, backups, failover, trials and operations: [hosting.md](hosting.md).
+
+## This repo
+
+```text
+AGENTS.md              entry point for any agent (CLAUDE.md only imports it)
+docs/                  methodology, architecture, choices, hosting, roadmap
+go.mod                 module github.com/briolink/briolink (E1)
+cmd/control/           composition root: control plane + control center
+cmd/assess/            composition root: assessment worker
+spec/                  the control plane's own spec
+tasks/                 task contracts
+port/                  one interface per role, with contract tests
+adapter/<role>/<name>/ provider implementations
+runner/                the loop: coder, checks, retries, escalation
+generate/              domaingen, apigen, sqlgen
+quality/mutate/        mutation checker
+core/                  the client-app core
+plugins/<name>/        the plugin catalog
+web/                   control center UI
+```
+
+Each module has its own tests and README and depends on others through small interfaces, so it could become its own module later.

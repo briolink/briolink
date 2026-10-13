@@ -1,66 +1,68 @@
 # Roadmap
 
-**The pipeline comes first (decision 59).** No client work goes through the platform until P0 and P1 pass their exit criteria. Client projects keep their own plans in their own repos.
-
-Three kinds of stage:
-- **P:** platform code, built by the pipeline from P1 on.
-- **H:** hosting operations, mostly founder work by hand.
-- **B:** business work, with no code.
+The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
 ## Stages
 
 | Stage | Delivers | Exit criteria |
 | --- | --- | --- |
-| **P0 · Pipeline core** (now; the reasoner model bootstraps it, decision 60) | **Control plane:** the headless API and event stream; the operator config; ports with contract tests for object storage, code host, coder and reasoner; API tokens and the audit log. No UI yet: work is tracked on the code host's issues and pull requests (decision 75). **Runner:** coder model through its port, a workspace per task in an offline build container, checks, retries, escalation to the reasoner then the founder, per-task records. **Tooling:** spec format v0, `apigen` and `sqlgen`, the mutation checker | The runner completes a benchmark set of tasks unattended (pure functions plus generated handlers), with every attempt recorded, visible through the API and summarised on each task's issue and pull request |
-| **P1 · Core, first plugins, reference app** (built by the pipeline) | The app core, the plugin manifest format, the initial plugin catalog ([platform.md](platform.md#plugins)), and a small reference app picking a subset of them: sign-up and login, one state-machine feature, baking to object storage | The reference app passes its end-to-end tests. Measured: coder first-pass rate, retries, escalations to the reasoner and to the founder, cost per task |
-| **P2 · Assessment engine** | Scope validation; a Go worker driving the crawler tools; the output contract; a report with a coverage table; SSRF, timeout, budget and cancellation tests | Repeatable assessments on a test set; honest coverage; no open critical security defect |
-| **P3 · Control center** | The UI (decision 75): login (password + TOTP), projects, the work queue and runner views read from the API, the Approvals inbox for actions outside a repo; the Specifications area (founder ↔ reasoner model), assessment views, quality gates, Infrastructure checks ([operations.md](operations.md#checks)) | The founder runs a project from spec to preview without leaving the browser |
-| **H1 · Hosting base** (alongside P1–P2; ready before the first hosted client goes live) | **Servers:** the shared server set up by hand, with its adapter's day-one setup; the private network hub and peers; a client pod; pulled deploys. **Data:** Litestream to the offsite backup and the ops host; uptime checks. **Failover:** ops-host standby (pods pre-created, tunnels, lease) and a **failover drill**. Every step goes into a runbook | Preview serves a baked page from the reference app; takeover and rebuild are timed |
-| **H2 · Hosting generalised** | Template repo (core + plugin catalog + generators + spec format + sector templates); provisioning modules adopting the first client's resources; `add-client.sh`; preview domain and trial system; WordPress importer and comparison report | A throwaway client is built from scratch by the scripts alone; a plan shows no changes on a live client; a trial converts end to end |
-| **P4 · Spec engine** | Backlog from assessment evidence; specs drafted from a business brief; task graphs with dependencies, risk and budgets | No task can be marked complete without its required evidence |
-| **P5 · Greenfield pipeline** | Spec templates, journeys, statecharts, preview deployment with an end-to-end report | A small app built from a reviewed spec and validated on preview |
-| **S · Scale selectively** | Queues, worker pools, more regions, usage accounting: each only with a measured problem statement | — |
-| **B0 · Validate the audit offer** (any time, in parallel) | A sample report and its evidence requirements; authorisation and data-handling procedure; price tests with 3–5 real prospects | A repeatable scope, a usable report, and evidence that someone pays |
+| **P0 · Pipeline core** (now; the reasoner bootstraps it) | **Control plane:** headless API and event stream, operator config, ports with contract tests (object storage, code host, coder, reasoner), API tokens, audit log; no UI. **Runner:** coder through its port, offline workspace per task, checks, retries, escalation, run records. **Tooling:** spec format v0 with statecharts, `domaingen`, `apigen`, `sqlgen`, the mutation checker | The runner completes a benchmark set of tasks unattended (statechart-driven pure functions plus generated handlers), every attempt recorded, visible through the API and summarised on each issue and pull request |
+| **P1 · Core, first plugins, reference app** | The app core, the plugin manifest, the initial catalog, a reference app using some of it: sign-up and login, one statechart-driven feature, baking | Its end-to-end tests pass. Measured: coder first-pass rate, retries, escalations, cost per task |
+| **P2 · Assessment engine** | Scope validation, the crawler worker, the output contract, a report with coverage, SSRF, timeout, budget and cancellation tests | Repeatable assessments on a test set; honest coverage; no open critical security defect |
+| **P3 · Control center** | The UI: login, projects, specifications area, work queue and runner views, approvals, assessments, gates, infrastructure | The founder runs a project from spec to preview in the browser |
+| **H1 · Hosting base** (alongside P1–P2) | The shared server by hand; the private network; a client pod; pulled deploys; replication to both targets; uptime checks; the ops-host standby and a **failover drill**; every step in a runbook | Preview serves a baked page from the reference app; takeover and rebuild are timed |
+| **H2 · Hosting generalised** | The client template repo; provisioning adopting existing resources; `add-client.sh`; preview domain and trial system; CMS importer and comparison report | A throwaway client built by the scripts alone; a plan shows no changes on a live client; a trial converts end to end |
+| **P4 · Spec engine** | Backlog from assessment evidence; models drafted from a business brief; task graphs with dependencies, risk and budgets | No task can complete without its evidence |
+| **P5 · Greenfield pipeline** | Spec templates, journeys from statecharts, preview deployment with an end-to-end report | A small app built from a reviewed spec, validated on preview |
+| **S · Scale selectively** | Queues, worker pools, regions, usage accounting, each with a measured problem | — |
+| **B0 · Validate the audit offer** (any time) | A sample report, the authorisation and data-handling procedure, price tests with 3–5 real prospects | A repeatable scope, a usable report, evidence that someone pays |
 
 ## Checklist
 
-- [x] For each binding in [bindings.md](bindings.md): account, 2FA, card if needed (the setup and spike items in each adapter doc stay open)
-- [x] Repo moved to `briolink/briolink` before any code lands (decision 74)
-- [ ] When the first code lands, the code host is set up for work tracking (decision 75): branch protection on `main`, labels, milestones per stage, `CODEOWNERS`, required reviews; then this checklist, the spikes (here and in [adapters/](adapters/)) and the open decisions move to issues, leaving the stages here
-- [ ] Mail sender chosen (O2)
-- [ ] Accountant (Canada) and lawyer questions from [product.md](product.md#questions-for-professionals-canada)
+- [x] An account with 2FA (and a card where needed) for each binding in [choices.md](choices.md#bindings)
+- [x] Repo at `briolink/briolink`
+- [ ] When the first code lands: branch protection on `main`, `CODEOWNERS`, labels, milestones per stage; then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
+- [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
+- [ ] Providers' terms: pooled and dedicated providers allow third-party hosting; the ops host's ISP allows a short-term fallback server and a hub; model providers' terms for client code and data
 
 ## Spikes
 
-Each spike tests one assumption; a failure only changes the area in brackets. **Provider-specific spikes are listed in each adapter doc** ([adapters/](adapters/)).
+Each tests one assumption; a failure changes only the area in brackets.
 
 **Pipeline (P0)**
 - [ ] Offline build container per task: `go build` and `go test` need no network, with dependencies vendored [isolation]
-- [ ] `sqlgen` schema check: preparing each annotated statement against the migrated schema catches wrong columns, counts and parameters [generators]
-- [ ] The mutation checker reproduces the pilot's result (every guard caught) on the same functions [quality]
-- [ ] Port contract tests pass on two object-storage adapters (production and trial stores) [ports]
+- [ ] Statechart v0: the derived tests plus the reasoner's boundary values kill every mutant of the guards and actions on a pilot entity [statecharts]
+- [ ] `sqlgen` schema check: preparing each statement against the migrated schema catches wrong columns, counts and parameters [generators]
+- [ ] The mutation checker reproduces the pilot's 32/32 on the same functions [quality]
+- [ ] Port contract tests pass on two object-storage adapters [ports]
+- [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
+- [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
+- [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]
 
 **Hosting (H1)**
-- [ ] 150 dummy pods on a 12 GB shared server under fake traffic: real memory per app, tunnel agent and pod; CPU during simultaneous fake live events [capacity]
-- [ ] Rootless Podman + Quadlet on an arm64 Ubuntu host: pods start at boot (lingering), cgroup limits apply, the per-UID nftables rule blocks cloud metadata, the private network and the provider's internal range [isolation]
+- [ ] 150 dummy pods on a 12 GB server under fake traffic: real memory per app, tunnel agent and pod; CPU during simultaneous live events [capacity]
+- [ ] Rootless Podman + Quadlet on arm64 Ubuntu: pods start at boot, cgroup limits apply, the per-UID nftables rule blocks metadata, the private network and the provider range [isolation]
 - [ ] One shared Litestream daemon with two replicas per database; time to restore 150 small databases on the ops host [failover]
-- [ ] Lease with a conditional write on the lease store; the primary stops itself when it can't confirm the lease [failover]
-- [ ] Edge DNS API repoints an API hostname from one tunnel to another: how fast it takes effect [failover]
+- [ ] Lease with conditional writes; the primary's behaviour when it can't confirm the lease (O11) [failover]
+- [ ] The edge's DNS API repoints an API hostname between tunnels: time to take effect [failover]
 - [ ] A tunnel moved to another server keeps its ID, with no DNS change [moves]
 - [ ] The serving contract test passes on the edge adapter, preview and the trial system [serving]
-- [ ] `ops.<brand domain>` → private address, with a DNS-01 certificate, served by the control plane [control center]
+- [ ] `ops.<brand domain>` → private address with a DNS-01 certificate [control center]
+- [ ] Ops host: public IPv4 (no CGNAT) and the hub's UDP port forwarded; the hub inside WSL2 routes between peers; spokes recover within ~2 min of an IP change [network]
+- [ ] Edge: conditional R2 reads return correct 304s; what visitors see past 100,000 Function requests a day; a second Pages project takes `preview.` and Access covers `*.pages.dev`; the preview Access redirect workaround; a Cache Rule honours `max-age=2` on `/live/*.json`; EU-jurisdiction buckets work with a custom domain and bindings [edge]
+- [ ] Garage on arm64 behaves like R2 for the storage plugin's calls; bucket quotas hold [trials]
+- [ ] Whether a PAYG Oracle tenancy is exempt from idle reclaim [shared compute]
+- [ ] Multi-arch builds stay within the free CI minutes and private package storage [code host]
 
-**Assessment engine (P2)**
-- [ ] Lighthouse repeatability on the ops host: score spread across 5 runs of the same page [audit quality]
-- [ ] Crawling from the ops host's connection: rate limits and bot blocks on typical small-business hosts [audit coverage]
+**Assessment (P2)**
+- [ ] Lighthouse spread across 5 runs of the same page on the ops host [audit quality]
+- [ ] Rate limits and bot blocks when crawling typical small-business hosts from the ops host's connection [audit coverage]
 
 ## Open decisions
 
-| # | Decision | Options and recommendation | Decide by |
+| # | Decision | Options and recommendation | By |
 | --- | --- | --- | --- |
 | O2 | Mail sender | Any provider with SMTP or an HTTP API, behind the mail port | P1 |
-| O4 | Preview domain name | A cheap neutral domain | H2 |
-| O5 | General prices | Validate the USD hypotheses in [product.md](product.md#offers) through B0 | End of B0 |
-| O6 | Regional prices (Tunisia) | See [markets/tunisia.md](markets/tunisia.md#regional-prices) | Before the first client there |
+| O4 | Preview domain | A cheap neutral domain | H2 |
 | O10 | Passkeys for the control center | Own WebAuthn module after a security review, or TOTP only | After P3 |
-| O11 | The primary when the lease store is unreachable | Today it stops itself, so a lease-store outage takes every live feature down although no takeover is possible either. Recommendation: the primary keeps running while it can reach the ops host over the private network and the ops host confirms it has not claimed the lease; it stops only when it is cut off from both. Test it in the lease spike | H1 |
+| O11 | The primary when the lease store is unreachable | Today it stops itself, so a lease-store outage takes every live feature down although no takeover is possible. Recommendation: keep running while the ops host, reached over the private network, confirms it has not claimed the lease; stop only when cut off from both | H1 |
