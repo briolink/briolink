@@ -151,7 +151,7 @@ The contract is a file in the project's repo, `tasks/<id>.json`, with no state i
 
 ### Work tracking
 
-Work is tracked on the code host, in the repo the work belongs to (decision 75). The code host is a deep binding with a prepared fallback ([architecture.md](architecture.md#binding-depth-and-fallbacks)).
+Work is tracked on the code host, in the repo the work belongs to (decision 75), from the implementation phase on: until the first code lands, design docs go straight to `main`. The code host is a deep binding with a prepared fallback ([architecture.md](architecture.md#binding-depth-and-fallbacks)).
 - **One issue per task**, linking its contract file. Milestones follow the roadmap stages; a split task becomes sub-issues.
 - **Standard labels:**
   - kind: `kind:logic`, `kind:spec`, `kind:test`, `kind:plugin`, `kind:docs`, `kind:spike`, `kind:decision`;

@@ -26,7 +26,7 @@ Three kinds of stage:
 
 - [x] For each binding in [bindings.md](bindings.md): account, 2FA, card if needed (the setup and spike items in each adapter doc stay open)
 - [x] Repo moved to `briolink/briolink` before any code lands (decision 74)
-- [ ] Code host set up for work tracking (decision 75): labels, milestones per stage, `CODEOWNERS`, required reviews; then this checklist, the spikes (here and in [adapters/](adapters/)) and the open decisions move to issues, leaving the stages here
+- [ ] When the first code lands, the code host is set up for work tracking (decision 75): branch protection on `main`, labels, milestones per stage, `CODEOWNERS`, required reviews; then this checklist, the spikes (here and in [adapters/](adapters/)) and the open decisions move to issues, leaving the stages here
 - [ ] Mail sender chosen (O2)
 - [ ] Accountant (Canada) and lawyer questions from [product.md](product.md#questions-for-professionals-canada)
 
