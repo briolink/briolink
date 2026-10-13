@@ -1,0 +1,15 @@
+# Suggested C:\Users\<you>\.wslconfig for the tower (i5 10th gen, 12 threads, 32 GB RAM).
+# Keeps your current settings and raises CPU/RAM/swap for development and the
+# warm standby. Apply with `wsl --shutdown` from Windows, at a quiet moment:
+# it restarts WSL and everything running in it.
+#
+# Split: WSL 16 GB (standby for ~150 clients ≈ 9 GB + development ≈ 7 GB);
+# Windows + Ollama (Qwen 30B partly offloaded to system RAM) keep ~16 GB.
+
+[wsl2]
+networkingMode=mirrored
+dnsTunneling=true
+processors=8
+memory=16GB
+swap=8GB
+autoMemoryReclaim=dropcache
