@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/briolink-prompt.sh\""
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink bound: as master, route this prompt to a role (AGENTS.md) and start the reply with Role: <name>.'; exit 0"
           }
         ]
       }
