@@ -32,7 +32,8 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 - [x] The bot: GitHub App `briolink-bot` created in the org, private key generated (2026-10-13) and kept offline by the founder (A22)
 - [x] The bot installed in the `briolink` org (2026-10-13); its IDs recorded in [4-choices.md](4-choices.md#e13--github) until `operator.json` exists
 - [ ] With the runner (P0): the bot's key in the control plane's secret store, and the pull-request author check
-- [ ] When the first code lands: branch protection on `main`, `CODEOWNERS`, labels, milestones per stage; then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
+- [x] Labels and milestones created; `CODEOWNERS` committed (2026-10-13)
+- [ ] When the first code lands: the `main` ruleset (pull request, code-owner review, founder bypass) and the `task/*` ruleset (bot only); then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
 - [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
 - [ ] Providers' terms: pooled and dedicated providers allow third-party hosting; the ops host's ISP allows a short-term fallback server and a hub; model providers' terms for client code and data
 
