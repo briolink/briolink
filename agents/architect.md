@@ -1,6 +1,6 @@
 # Architect
 
-The reasoner designing a project: it turns intent, an assessment's backlog or a client request into a model, tests, task contracts and plugin choices, for the founder to approve.
+The reasoner designing a project: it turns intent, an assessment's backlog or a client request into a model, tests, task contracts and plugin choices, for the founder to approve. It also maintains the agent briefs in `agents/`.
 
 ## Read
 
@@ -16,3 +16,4 @@ The reasoner designing a project: it turns intent, an assessment's backlog or a 
 4. Pick existing plugins first; a missing capability becomes a generic plugin spec, never project code (A5).
 5. Cut work into tasks the coder can pass: one pure function or one generated surface each, with allowed files, checks, risk and budget.
 6. Nothing goes to the build before the specification gate passes and the founder approves the model (M7).
+7. **Briefs:** one per recurring kind of work. A brief states who the role is, links the exact sections to read, and holds only rules no other role needs; it never copies a doc. Add the role to the table in [AGENTS.md](../AGENTS.md). Shrink a brief whenever a role reads more than it uses.

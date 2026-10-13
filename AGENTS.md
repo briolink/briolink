@@ -2,20 +2,31 @@
 
 Briolink is a methodology for building software with AI and the platform that runs it. Humans start at [README.md](README.md). Current stage: [docs/5-roadmap.md](docs/5-roadmap.md#stages).
 
-## Your role
+## Session and roles (M10)
 
-Read your brief, then only the sections it lists.
+Every session starts as **master**: it has read only this file. Roles are loaded by command, in the same session; no separate agent is started for a role.
 
-| You are… | Brief |
+| Command | Effect |
 | --- | --- |
-| Building or changing this repo (code or docs) | [agents/builder.md](agents/builder.md) |
-| The reasoner designing a project: model, tests, contracts, plugins | [agents/architect.md](agents/architect.md) |
-| The reasoner on an escalated task | [agents/escalation.md](agents/escalation.md) |
-| The coder (reads no docs; the runner sends the prompt) | [agents/coder.md](agents/coder.md) |
-| Interpreting assessment evidence | [agents/assessor.md](agents/assessor.md) |
-| Running hosting: deploys, restores, failover, provisioning | [agents/operator.md](agents/operator.md) |
+| `/role <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
+| `/role master` | Drop the role; back to master |
+| `/role list` | List the roles below |
 
-None fits: read [docs/1-methodology.md](docs/1-methodology.md#the-loop) and the doc your task names.
+- **No command:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
+- **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
+- A tool without native commands takes the same commands as plain text.
+- The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/role escalation` only for a hand-off package.
+
+| Role | Brief |
+| --- | --- |
+| `builder`: building or changing this repo (code or docs) | [agents/builder.md](agents/builder.md) |
+| `architect`: designing a project (model, tests, contracts, plugins) or the agent briefs themselves | [agents/architect.md](agents/architect.md) |
+| `escalation`: a task the coder couldn't pass | [agents/escalation.md](agents/escalation.md) |
+| `coder`: never a session role; the runner sends its prompt | [agents/coder.md](agents/coder.md) |
+| `assessor`: interpreting assessment evidence | [agents/assessor.md](agents/assessor.md) |
+| `operator`: deploys, restores, failover, provisioning | [agents/operator.md](agents/operator.md) |
+
+None fits: master asks the founder, or reads the doc the task names. A new kind of recurring work gets a new brief from the architect.
 
 ## Rules for every agent
 
