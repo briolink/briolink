@@ -23,6 +23,26 @@ The only doc that names today's providers, machines, models and brand. Generic d
 | Crawler tools | Playwright, Lighthouse, axe-core | [platform.md](platform.md#website-intelligence-engine) | Run inside assessment worker containers |
 | First market | Tunisia (and Libya), through a partner agency | [markets/tunisia.md](markets/tunisia.md) | |
 
+## If a binding fails
+
+Depth, fallback and exit are defined in [architecture.md](architecture.md#binding-depth-and-fallbacks). The adapter docs hold the details.
+
+| Role | Depth | When it fails: fallback | What stops meanwhile |
+| --- | --- | --- | --- |
+| Edge (Cloudflare) | Deep | No hot fallback: a provider-wide outage is an accepted risk. A lost client account is rebuilt from the client's offsite backup on the exit path ([adapters/cloudflare.md](adapters/cloudflare.md#fallback)) | That client's public site and API |
+| Object storage (R2) | Thin | No hot fallback: it shares the edge provider, so it fails with the edge. Nothing is lost: originals are in the offsite backup and pages are rebuilt by re-baking into any S3 store | Media, uploads, baking |
+| Lease store (one R2 object) | Thin | None yet: see open decision O11 in [roadmap.md](roadmap.md#open-decisions) | Takeover; and today the primary stops itself |
+| Offsite backup (B2) | Thin | Litestream's second replica on the ops host | One of the two database copies |
+| Compute, shared tier (Oracle) | Thin | The ops host (the tower) takes over in ~2–5 min, then the prepared fallback VPS account within 24 h ([servers.md](servers.md#failover)) | Nothing, after the takeover |
+| Ops host (the tower) | Thin | Client sites don't depend on it. The control plane is restored on a rented VPS from its database replica and the repo; the hub moves with it ([adapters/tower.md](adapters/tower.md#fallback)) | Control plane, coder model, runner, warm standby |
+| Private network (WireGuard) | Thin | The providers' web consoles ([operations.md](operations.md#private-network)) | Admin access over SSH, metrics |
+| Code host (GitHub) | Deep | The ops host keeps a mirror of every repo and a nightly export of issues; the runner keeps working on queued tasks and pushes when it returns. Exit: a self-hosted Forgejo on the ops host ([adapters/github.md](adapters/github.md#fallback)) | New issues, reviews, CI, new images and deploys. Running sites are unaffected |
+| Coder model (Qwen) | Thin | Logic tasks queue; urgent ones escalate to the reasoner model | First attempts on logic tasks |
+| Reasoner model (Claude) | Deep | Work queues at the plan's limit; hand-off packages through the editor extension ([adapters/models.md](adapters/models.md#reasoner-claude-through-headless-claude-code)) | Specs, tests, escalations |
+| Notifier (Telegram) | Thin | E-mail | — |
+| External pinger (healthchecks.io) | Thin | The ops host's own checks; the founder notices silence in the daily digest | The dead-man's switch on the ops host |
+| Provisioning (OpenTofu) | Thin | The runbooks: every step is also written by hand | Automated changes |
+
 ## Compute price reference
 
 2026 list prices; verify before ordering.

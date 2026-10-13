@@ -79,6 +79,10 @@ The host firewall also drops traffic from client UIDs to the VCN range.
 - [ ] `cpu-keeper` enabled on the day the VM is created
 - [ ] Spike: whether a PAYG tenancy is exempt from idle reclaim
 
+## Fallback
+
+The ops host takes over in ~2–5 min, and a replacement starts on the prepared fallback VPS account within 24 hours ([servers.md](../servers.md#failover)). The same applies if the account is terminated.
+
 ## Swap notes
 
 Any Linux arm64 or amd64 host with systemd, rootless Podman and cgroup v2 can replace it; the same image runs everywhere. Without the free tier, the shared tier costs ~$28/month at Oracle list price, or moves to a pooled VPS ([servers.md](../servers.md#hosting-tiers)).

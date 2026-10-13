@@ -62,6 +62,13 @@ Current binding for the **edge**, **object storage** (R2) and **lease store** ro
 - [ ] R2 EU-jurisdiction buckets work with a custom domain and Pages bindings
 - [ ] Garage on arm64 behaves like R2 for the `s3` module's calls; bucket quotas hold (trial store)
 
+## Fallback
+
+**Depth: deep** ([architecture.md](../architecture.md#binding-depth-and-fallbacks)): DNS, static hosting, the request function, storage, the tunnel, the access gateway and the bot challenge all come from one provider.
+- **Provider-wide outage:** no hot fallback; this is an accepted risk for a large, stable provider. DNS is part of the edge, so a second CDN wouldn't be reachable either.
+- **One client's account lost or locked:** each client has its own account, so only that client is affected. Rebuild on the exit path from the runbook: the code is in the client's repo, the databases and originals are in the client's offsite backup, and pages are re-baked.
+- **Lease object unreachable:** see open decision O11 ([roadmap.md](../roadmap.md#open-decisions)).
+
 ## Swap notes
 
 Any replacement must provide the whole edge contract and pass the serving contract test. Options to evaluate if needed:

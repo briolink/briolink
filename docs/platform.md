@@ -102,7 +102,7 @@ The runner is the reasoner/coder test loop, built into the control plane (decisi
 4. Run the checks: `gofmt`, `go vet`, regenerate-and-diff, `go test`, then the mutation check.
 5. **Pass:** record it, open a pull request that closes the task's issue, and post a short summary of the attempts on the issue. The pull request merges after the checks, and after the founder's review if the task's risk requires it. **Fail:** retry with the failure output until the retry budget is spent.
 6. **Escalate to the reasoner model** (decision 56), through the `Reasoner` port, with the task, every attempt and its failures. It fixes the tests or spec, splits the task, or writes the code; the same checks apply.
-7. **Escalate to the founder** if the reasoner's attempt also fails. The issue is labelled `needs-founder` and assigned to the founder, with a link to its full history.
+7. **Escalate to the founder** if the reasoner's attempt also fails. The issue is labelled `state:needs-founder` and assigned to the founder, with a link to its full history.
 
 **What is recorded per task:** model, attempts, durations, tokens and cost, check results, and who finally solved it. These numbers drive routing and prices.
 
@@ -151,12 +151,24 @@ The contract is a file in the project's repo, `tasks/<id>.json`, with no state i
 
 ### Work tracking
 
-Work is tracked on the code host, in the repo the work belongs to (decision 75):
-- **One issue per task**, linking its contract file. Labels give the kind, the risk and the state; milestones follow the roadmap stages; a split task becomes sub-issues.
+Work is tracked on the code host, in the repo the work belongs to (decision 75). The code host is a deep binding with a prepared fallback ([architecture.md](architecture.md#binding-depth-and-fallbacks)).
+- **One issue per task**, linking its contract file. Milestones follow the roadmap stages; a split task becomes sub-issues.
+- **Standard labels:**
+  - kind: `kind:logic`, `kind:spec`, `kind:test`, `kind:plugin`, `kind:docs`, `kind:spike`, `kind:decision`;
+  - risk: `risk:low`, `risk:medium`, `risk:high`;
+  - state: `state:queued`, `state:running`, `state:needs-reasoner`, `state:needs-founder`, `state:blocked`. A done task is a closed issue, closed by its pull request.
 - **Contracts change only through a reviewed pull request.** The founder owns `tasks/` and `spec/` as code owner, so no worker or model can change its own acceptance criteria.
 - **Issue text is data** (rule 8). The runner reads the contract file and the spec, never the issue's body or comments. A client's issue is a request that the reasoner model turns into a contract, which the founder approves.
 - **Records stay internal.** Attempts, tokens and cost live in the control plane; the issue gets a summary without cost figures, since client repos are visible to the client.
 - **Code approvals are pull-request reviews**, enforced by protected branches. Approvals outside a repo stay in the control plane.
+- **Headless and agnostic:** the control plane reaches issues and pull requests only through the code host port, and exposes tasks as its own API resources (`/api/v1/tasks`). Its clients never call the code host, so a code host swap changes one adapter, not the UI or the API.
+- **Contracts travel with the code:** because contracts are files, the runner can keep working from the repo mirror while the code host is down.
+
+**Until the runner exists** (the P0 bootstrap, decision 60), agents follow the same flow by hand:
+1. Pick an open issue in the current milestone, with no `state:blocked` label, whose dependencies are closed.
+2. Read its contract file, or for docs, spikes and decisions, the issue's stated outcome. Read only the docs it needs ([AGENTS.md](../AGENTS.md)).
+3. Work on a branch; open a pull request that says `Closes #<n>`, with the evidence: checks run and their output, and what was not verified.
+4. A spike closes with its measured answer in the issue; a decision closes with a new row in [decisions.md](decisions.md).
 
 ## Code rules (decisions 64, 65)
 

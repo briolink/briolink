@@ -63,3 +63,4 @@ Each spike tests one assumption; a failure only changes the area in brackets. **
 | O5 | General prices | Validate the USD hypotheses in [product.md](product.md#offers) through B0 | End of B0 |
 | O6 | Regional prices (Tunisia) | See [markets/tunisia.md](markets/tunisia.md#regional-prices) | Before the first client there |
 | O10 | Passkeys for the control center | Own WebAuthn module after a security review, or TOTP only | After P3 |
+| O11 | The primary when the lease store is unreachable | Today it stops itself, so a lease-store outage takes every live feature down although no takeover is possible either. Recommendation: the primary keeps running while it can reach the ops host over the private network and the ops host confirms it has not claimed the lease; it stops only when it is cut off from both. Test it in the lease spike | H1 |
