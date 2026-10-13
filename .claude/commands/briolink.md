@@ -1,15 +1,13 @@
 ---
-description: Switch this session to a Briolink agent role (builder, architect, escalation, assessor, operator), or back to master
-argument-hint: [role|master|list|exit] [task]
+description: Bind this session to Briolink (every prompt routed by master to a role), take one task as a given role, or unbind
+argument-hint: [role|list|exit] [task]
 ---
 Arguments: $ARGUMENTS
 
-Follow "Session and roles" in AGENTS.md. Until `exit`, every later prompt stays bound and every reply starts with `Role: <name>`.
-
-The flag: on every bind or switch, write the role's name alone to `.briolink/role` (create the folder); on `exit`, delete the file. Do it first, in one command. The flag is shared by every session in this folder.
-- If the arguments are empty, bind the session as master and wait for a task.
-- If the first argument is `exit`, unbind: answer as the plain model from now on, with no role line.
-- If the first argument is `master`, drop the current role and act as master.
-- If it is `list`, list the roles from AGENTS.md and stop.
-- If the first argument is not a role name, act as master: pick the role for the task those words describe, as AGENTS.md says.
-- Otherwise read `agents/<first argument>.md` and only the sections it lists, start your reply with `Role: <name>`, then do the rest of the arguments as the task, if any.
+Follow "Session and roles" in AGENTS.md.
+- `exit`: delete `.briolink/bound` and answer as the plain model from now on, with no role line.
+- `list`: list the roles from AGENTS.md and stop.
+- Anything else: first create `.briolink/bound` (an empty file; create the folder) if it is missing. Then:
+  - empty: say the session is bound and wait for a task;
+  - a role name first: take the rest as the task in that role, reading `agents/<role>.md` and only the sections it lists if not already read this session; start the reply with `Role: <role>`;
+  - otherwise: as master, route the words as a task.

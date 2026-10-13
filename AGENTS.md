@@ -4,20 +4,19 @@ Briolink is a methodology for building software with AI and the platform that ru
 
 ## Session and roles (M10)
 
-**Roles exist only on `/briolink`.** Without it, a session is no role: it works as the plain model, under the shared rules below only, and never announces or picks a role. `/briolink` binds the session: from then on **every prompt** is handled by master or the current role, until `/briolink exit` returns it to the plain model. Roles load by command, in the same session, with no separate agent started for a role. While bound, every reply starts with `Role: <name>`, so the state stays visible, also after the context is summarised.
+**Roles exist only on `/briolink`.** Without it, a session is no role: it works as the plain model, under the shared rules below only, and never announces or picks a role. `/briolink` binds the session: from then on **every prompt goes through master**, which picks the role for that prompt, until `/briolink exit` returns it to the plain model. Roles are per prompt, never kept: a follow-up simply routes to the same role again, whose brief is already loaded. No separate agent is started for a role.
 
 | Command | Effect |
 | --- | --- |
-| `/briolink [task]` | Bind the session; master picks the role for the task |
-| `/briolink <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
-| `/briolink master` | Drop the role; back to master, still bound |
+| `/briolink [task]` | Bind the session; master routes this and every later prompt |
+| `/briolink <name> [task]` | Bind, and take this task as that role: read `agents/<name>.md`, then only the sections it lists |
 | `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 
-- **Inside `/briolink`, without a role name:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
-- **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step (a search, a quick question) is done in place; anything larger goes back to master, announced.
+- **Routing:** master picks the role from the table below and starts the reply with it (`Role: <name>, because …`). A brief is read once per session; later prompts for the same role reuse it. If a prompt spans roles, finish one part, then switch, saying so.
+- **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step is done in place.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
-- **The flag:** while bound, `.briolink/role` holds the current role's name (local, never committed); only `/briolink exit` deletes it. The binding belongs to the folder: every session started in it inherits the flag, and a role switch in one session switches all of them. Tools with hooks announce it at session start and re-inject it on every prompt, so it survives summaries.
+- **The flag:** while bound, the empty file `.briolink/bound` exists (local, never committed); only `/briolink exit` deletes it. It belongs to the folder: every session started there inherits it. Tools with hooks announce it at session start and re-inject it on every prompt, so the binding survives summaries.
 - A tool without native commands takes the same commands as plain text.
 - **Per repo:** the command, this file and `agents/` belong to the repo they sit in. Every project made from the template gets its own copy (synced like plugins), so `/briolink` works there on that project's files and routing (its `spec/project.json` overrides).
 - The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
