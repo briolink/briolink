@@ -4,13 +4,14 @@ Briolink is a methodology for building software with AI and the platform that ru
 
 ## Session and roles (M10)
 
-**Roles exist only on `/briolink`.** Without it, a session is no role: it works as the plain model, under the shared rules below only, and never announces or picks a role. `/briolink` starts **master**; roles are then loaded by command, in the same session, with no separate agent started for a role.
+**Roles exist only on `/briolink`.** Without it, a session is no role: it works as the plain model, under the shared rules below only, and never announces or picks a role. `/briolink` binds the session: from then on **every prompt** is handled by master or the current role, until `/briolink exit` returns it to the plain model. Roles load by command, in the same session, with no separate agent started for a role. While bound, every reply starts with `Role: <name>`, so the state stays visible, also after the context is summarised.
 
 | Command | Effect |
 | --- | --- |
-| `/briolink [task]` | Start master; it picks the role for the task |
+| `/briolink [task]` | Bind the session; master picks the role for the task |
 | `/briolink <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
-| `/briolink master` | Drop the role; back to master |
+| `/briolink master` | Drop the role; back to master, still bound |
+| `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 
 - **Inside `/briolink`, without a role name:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.

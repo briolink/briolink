@@ -1,11 +1,12 @@
 ---
 description: Switch this session to a Briolink agent role (builder, architect, escalation, assessor, operator), or back to master
-argument-hint: [role|master|list] [task]
+argument-hint: [role|master|list|exit] [task]
 ---
 Arguments: $ARGUMENTS
 
-Follow "Session and roles" in AGENTS.md:
-- If the arguments are empty, act as master and wait for a task.
+Follow "Session and roles" in AGENTS.md. Until `exit`, every later prompt stays bound and every reply starts with `Role: <name>`.
+- If the arguments are empty, bind the session as master and wait for a task.
+- If the first argument is `exit`, unbind: answer as the plain model from now on, with no role line.
 - If the first argument is `master`, drop the current role and act as master.
 - If it is `list`, list the roles from AGENTS.md and stop.
 - If the first argument is not a role name, act as master: pick the role for the task those words describe, as AGENTS.md says.
