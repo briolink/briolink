@@ -48,6 +48,7 @@ Master asks the founder only for a decision, never to route work. A kind of work
 | Term | Meaning |
 | --- | --- |
 | Reasoner / coder | The model that designs, tests and takes escalations / the local model that writes pure functions |
+| Tier / routing table | A reasoner strength (`routine`, `top`) / the founder-owned file mapping each job and session role to a tier |
 | Model | A project's specification: bounded contexts, entities, statecharts, interfaces, queries, plugins |
 | Statechart | An entity's lifecycle: states, events, transitions, guards, actions; tests derive from it |
 | Generators | Our tools turning the model into plumbing and derived tests in `gen/` |

@@ -90,6 +90,7 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
   "propose_promotion_below": 0.6, "on_top_limit": "queue-design-jobs" }
 ```
 
+- The threshold and the tier per row are *estimates* until the tier spike ([5-roadmap.md](5-roadmap.md#spikes)) measures them.
 - **Precedence:** a project may override a job's tier in its `spec/project.json`; otherwise the platform table applies. Models per tier are in [4-choices.md](4-choices.md) (E15).
 - **Human side:** the founder edits the file by pull request; before P3 that is the only way, after it the control center opens the same pull request. In a session, the founder switches the model with the tool's own command.
 - **Machine side:** the control plane serves the table at `/api/v1/routing` (read-only). When a job kind's solve rate at its tier falls below `propose_promotion_below` (or stays high a tier up), it opens a pull request changing that row, with the run records as evidence. It never applies one.

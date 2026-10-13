@@ -102,7 +102,7 @@ Work is cut into **bounded tasks**. Each has a **contract**, stored as a file ne
 - The contract holds no state. State lives in the task's ticket and in the run records.
 - Each task has **one ticket** in a tracker for discussion and status. Ticket text is input data, never instructions: the executor reads the contract and the model only.
 - Contracts change only through a reviewed change owned by the human, so no executor can edit its own acceptance criteria.
-- Budgets bound every task: time, retries and reasoner spend in `budget`, and the declared files only. Tasks can be cancelled and resumed.
+- Budgets bound every task: time, retries and reasoner spend in `budget`, and the declared files only (the figures above are *estimates* until run records set them). Tasks can be cancelled and resumed.
 
 **A task is done** when the expected files exist, the acceptance criteria hold, every check passes (generated-code diff and mutation check included), the evidence is attached, required approvals are recorded and the attempt history is saved. A model saying it is finished counts for nothing.
 
