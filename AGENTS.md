@@ -13,7 +13,7 @@ Briolink is a methodology for building software with AI and the platform that ru
 | `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 
-- **Routing:** master picks the role from the table below and starts the reply with it (`Role: <name>, because …`). A brief is read once per session; later prompts for the same role reuse it. If a prompt spans roles, finish one part, then switch, saying so.
+- **Routing:** master picks the role from the table below and starts the reply with it (`Role: <name>, because …`). **Continuity first:** a prompt stays in the last reply's role unless it is clearly a different kind of work; `/briolink <role>` forces a role. Tools with hooks read the last reply's role line from the session's transcript and name it on every prompt, so no role is stored anywhere. A brief is read once per session; later prompts for the same role reuse it. If a prompt spans roles, finish one part, then switch, saying so.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step is done in place.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
 - **The flag:** while bound, the empty file `.briolink/bound` exists (local, never committed); only `/briolink exit` deletes it. It belongs to the folder: every session started there inherits it. Tools with hooks announce it at session start and re-inject it on every prompt, so the binding survives summaries.
