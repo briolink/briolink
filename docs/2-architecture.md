@@ -116,7 +116,7 @@ From the first code on, each repo's issues are its tasks:
 | `spec/project.json` | Plugins and their options | Wiring |
 | `spec/domain/<context>.json` | One bounded context: glossary, entities and invariants, statecharts, pure function signatures and rules | `domaingen`: types, transition tables, dispatchers, stubs, derived tests |
 | `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `apigen`: handlers, validation, route table, typed structs |
-| `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result | `sqlgen`: typed functions, schema check test |
+| `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result | The queries generator (P0 spike): typed functions, and a test that prepares every statement against the migrated schema test |
 
 Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker (`quality/mutate`) is our own, built on `go/ast`.
 
@@ -210,7 +210,7 @@ tasks/                 task contracts
 port/                  one interface per role, with contract tests
 adapter/<role>/<name>/ provider implementations
 runner/                the loop: coder, checks, retries, escalation
-generate/              domaingen, apigen, sqlgen
+generate/              domaingen, apigen; the queries generator per the P0 spike
 quality/mutate/        mutation checker
 core/                  the client-app core
 plugins/<name>/        the plugin catalog

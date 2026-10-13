@@ -4,18 +4,20 @@ Briolink is a methodology for building software with AI and the platform that ru
 
 ## Session and roles (M10)
 
-Every session starts as **master**: it has read only this file. Roles are loaded by command, in the same session; no separate agent is started for a role.
+**Roles exist only on `/briolink`.** Without it, a session is no role: it works as the plain model, under the shared rules below only, and never announces or picks a role. `/briolink` starts **master**; roles are then loaded by command, in the same session, with no separate agent started for a role.
 
 | Command | Effect |
 | --- | --- |
+| `/briolink [task]` | Start master; it picks the role for the task |
 | `/briolink <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
 | `/briolink master` | Drop the role; back to master |
 | `/briolink list` | List the roles below |
 
-- **No command:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
+- **Inside `/briolink`, without a role name:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step (a search, a quick question) is done in place; anything larger goes back to master, announced.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
 - A tool without native commands takes the same commands as plain text.
+- **Per repo:** the command, this file and `agents/` belong to the repo they sit in. Every project made from the template gets its own copy (synced like plugins), so `/briolink` works there on that project's files and routing (its `spec/project.json` overrides).
 - The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
 
 | Role | Brief |

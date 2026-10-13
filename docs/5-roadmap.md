@@ -8,7 +8,7 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 
 | Stage | Delivers | Exit criteria |
 | --- | --- | --- |
-| **P0 · Pipeline core** (now; the reasoner bootstraps it) | **Control plane:** headless API and event stream, operator config, the routing table (`spec/routing.json`, served read-only), ports with contract tests (object storage, code host, coder, reasoner), API tokens, audit log; no UI. **Runner:** coder through its port, offline workspace per task, checks, retries, escalation, run records. **Tooling:** spec format v0 with statecharts, `domaingen`, `apigen`, `sqlgen`, the mutation checker | The runner completes a benchmark set of tasks unattended (statechart-driven pure functions plus generated handlers), every attempt recorded, visible through the API and summarised on each issue and pull request |
+| **P0 · Pipeline core** (now; the reasoner bootstraps it) | **Control plane:** headless API and event stream, operator config, the routing table (`spec/routing.json`, served read-only), ports with contract tests (object storage, code host, coder, reasoner), API tokens, audit log; no UI. **Runner:** coder through its port, offline workspace per task, checks, retries, escalation, run records. **Tooling:** spec format v0 with statecharts, `domaingen`, `apigen`, the queries generator, the mutation checker | The runner completes a benchmark set of tasks unattended (statechart-driven pure functions plus generated handlers), every attempt recorded, visible through the API and summarised on each issue and pull request |
 | **P1 · Core, first plugins, reference app** | The app core, the plugin manifest, the initial catalog, a reference app using some of it: sign-up and login, one statechart-driven feature, baking | Its end-to-end tests pass. Measured: coder first-pass rate, retries, escalations per tier, cost per task |
 | **P2 · Assessment engine** | Scope validation, the crawler worker, the output contract, a report with coverage, SSRF, timeout, budget and cancellation tests | Repeatable assessments on a test set; honest coverage; no open critical security defect |
 | **P3 · Control center** | The UI: login, projects, specifications area, work queue and runner views, approvals, assessments, gates, infrastructure | The founder runs a project from spec to preview in the browser |
@@ -34,12 +34,12 @@ Each tests one assumption; a failure changes only the area in brackets.
 **Pipeline (P0)**
 - [ ] Offline build container per task: `go build` and `go test` need no network, with dependencies vendored [isolation]
 - [ ] Statechart v0: the derived tests plus the reasoner's boundary values kill every mutant of the guards and actions on a pilot entity [statecharts]
-- [ ] `sqlgen` schema check: preparing each statement against the migrated schema catches wrong columns, counts and parameters [generators]
-- [ ] The mutation checker reproduces the pilot's 32/32 on the same functions [quality]
+- [ ] sqlc as the queries generator, instead of building our own: SQLite engine on our migrations, our query headers (`:one`, `:many`, `:exec`), named typed parameters, output importing only the standard library and running on our driver, identical on every run, offline, MIT licence. Its static check misses an unknown column in a `WHERE`, so the generated test that prepares every statement against the migrated schema stays a required check. A first run (2026-10-13, sqlc 1.31.1) passed all of these. Pass: record it in choices; fail: we build the generator [generators]
+- [ ] The mutation checker reproduces the pilot's 32/32 on the same functions, cross-checked with Gremlins on them: every mutant one tool kills and the other misses is explained [quality]
 - [ ] Port contract tests pass on two object-storage adapters [ports]
 - [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
 - [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
-- [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; proposes the first changes to `spec/routing.json` [reasoner]
+- [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; whether a cheap replan before escalating (the routine tier re-cuts the task or rewrites the plan from the failure, then the coder retries) solves enough failures to skip escalations; proposes the first changes to `spec/routing.json` [reasoner]
 - [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]
 
 **Hosting (H1)**
