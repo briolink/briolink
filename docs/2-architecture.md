@@ -25,7 +25,7 @@ Briolink sells three offers on one pipeline, in this order: **Assess** an existi
 | Private network | An encrypted peer network that servers dial out to | Admin access, replicas, metrics |
 | Code host | Git with protected branches and required reviews by code owners; issues with labels and milestones through an API; CI on tags; an OCI registry with attestations and read-only pull tokens | Repos, work tracking, approvals, deploys |
 | Coder model | Local, no per-token cost; turns a task contract into code | Runner |
-| Reasoner model | Structured output, cost reporting | Runner, specifications |
+| Reasoner model | Structured output, cost reporting, a tier chosen per call | Runner, specifications |
 | Notifier | Push alerts, de-duplicated, with a fallback channel | Control plane |
 | External pinger | A dead-man's switch outside our infrastructure | Monitoring, failover |
 | Mail sender | Transactional e-mail with SPF and DKIM | Client apps |
@@ -63,13 +63,13 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 
 ## Runner
 
-The methodology's loop, as a module of the control plane:
+*Choices: M6, M11.* The methodology's loop, as a module of the control plane:
 1. Create a workspace (a git worktree) in a build container with no network.
-2. Send the coder, through its port: the contract, the function signature, its documentation, the tests and the last failure output.
+2. Send the coder, through its port: the contract, the function signature, its documentation, the tests and the last failure output, in that order (stable first, so the prefix is cached).
 3. Apply the returned code to the allowed files only; anything else is rejected.
 4. Run the checks: `gofmt`, `go vet`, regenerate-and-diff, `go test`, the mutation check.
-5. **Pass:** record it, open a pull request that closes the task's issue, post an attempt summary on the issue (no cost figures: client repos are visible to the client). **Fail:** retry with the failure output until the budget is spent.
-6. Escalate to the reasoner with every attempt; the same checks apply to its answer.
+5. **Pass:** record it, open a pull request that closes the task's issue, post an attempt summary on the issue (no cost figures: client repos are visible to the client). **Fail:** retry with the failure output until the budget is spent, or escalate early when two attempts fail the same tests with the same output.
+6. Escalate to the reasoner at the routine tier, then once at the top tier, within the task's `reasoner_usd`; the input is the contract, the model slice, the tests, the last attempt and its trimmed failure, and the earlier attempts' failing test names. The same checks apply to its answer.
 7. Escalate to the founder: the issue gets `state:needs-founder` and is assigned, with a link to the full history.
 
 ## Work tracking

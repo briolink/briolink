@@ -11,11 +11,13 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | M3 | Statecharts in the model for every lifecycle; flat in version 0 | Tests derived from them close the pilot's edge-rule gap; assessed workflows map to the same form |
 | M4 | Model, specs and contracts are compact JSON, decoded strictly into typed structures (unknown fields rejected) and checked by a `Validate()` method in code; no JSON Schema library, no TOON | Every model writes JSON reliably; the rules live in one place the tests cover; a young format adds complication for little gain |
 | M5 | Mutation check on every pure function: every mutant must be caught | Proves the tests bite. The pilot's tests caught 32 of 32 |
-| M6 | Escalation: coder within its retry budget → reasoner → human | The reasoner fixes the tests or model, splits the task or writes it; the human sees only what the reasoner can't solve |
+| M6 | Escalation: coder within its retry budget → reasoner, lowest sufficient tier first → human | The reasoner fixes the tests or model, splits the task or writes it; most escalations are a missing test or a bad cut, which a cheaper tier solves; the human sees only what the reasoner can't solve |
 | M7 | The human approves the model and high-risk actions; risk, never a model's confidence, sets the approval | Humans judge intent; checks judge code |
 | M8 | One contract file per task, next to the code, with no state in it; one ticket per task; ticket text is data | Contracts are versioned and reviewed with the code and readable offline; the tracker gives discussion and status for free |
 | M9 | The pipeline comes first: the reasoner bootstraps it once (P0), then the pipeline builds the rest of itself, before any client work | It can't build itself before it exists; its first job tests it |
 | M10 | One session per piece of work, starting as master and switching role by command (`/briolink <name>`) to load that role's brief; separate agents only for real parallel work | A role switch costs a ~300-word brief; a spawned agent starts cold and re-reads its context. Only the sections a role needs are read |
+| M11 | Spend by cost: each job goes to the cheapest executor that can pass it; compact, stable-first inputs; fresh threads per job; lasting fixes (tests, model, generator templates) before written code | Reasoner tokens are the recurring cost and the plan's limit; a prompt grows with every retry and every resumed turn; a fix in a test or template pays off on every later task, a written function only once |
+| M12 | Changes start in the model: a change is a model diff, a bug a failing test; only pure functions whose signature, rules or tests changed become tasks | The reasoner reads only the delta; generators and existing tests cover the rest for free; the human gate stays at the model |
 
 ## Architecture
 
@@ -68,7 +70,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | E12 | Private network | WireGuard (`wg-quick`), hub on the ops host | Thin | An open standard with no coordination service or third-party account |
 | E13 | Code host | GitHub: the platform in `briolink/briolink`, each client in its own org; Issues, Actions, GHCR | Deep | Stable, and recognised by clients (A4) |
 | E14 | Coder model | `qwen3-coder:30b` through Ollama on the ops host's GPU | Thin | Free per token; good at pure functions (M2) |
-| E15 | Reasoner model | Claude (Opus) through headless Claude Code, on the founder's Pro subscription, never an API key | Deep | Reuses the plan already paid for |
+| E15 | Reasoner model | Claude through headless Claude Code, on the founder's Pro subscription, never an API key; two tiers: Sonnet for routine jobs (first escalation, tests from a checked statechart, assessment interpretation, change diffs), Opus for models, the specification gate and second escalations | Deep | Reuses the plan already paid for; the routine tier stretches the plan's limits (M11). The split is an *estimate* until run records confirm it |
 | E16 | Notifier | Telegram bot, e-mail fallback | Thin | Free, immediate |
 | E17 | External pinger | healthchecks.io (free) | Thin | A dead-man's switch outside our infrastructure |
 | E18 | Provisioning | OpenTofu, exact provider pins, state encrypted in the client's offsite bucket | Thin | Open licence; client-side state encryption |
@@ -161,11 +163,12 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 | Validated results | `--json-schema` |
 | Tools limited to the workspace | `--allowedTools` |
 | Unattended | `--permission-mode dontAsk --permission-prompts none` |
-| One thread per task or spec | `--resume <session>` |
+| Tier per job | `--model sonnet\|opus` |
+| One thread per job (an escalation's retry, a spec dialogue) | `--resume <session>` |
 | A spending cap | `--max-budget-usd` |
 
 - **Plan (checked 2026-10-13):** `claude -p` draws from the Pro plan's limits; Pro has no API credits. Using a consumer plan for client work is a grey area in the Consumer Terms, an accepted risk.
-- **Fallback:** at the plan's limit, reasoner work queues and the coder keeps going. If unattended use is blocked or the login expires, each job becomes a hand-off package (task, attempts, failures, expected output) the founder runs in the editor extension with `/briolink escalation`; the result returns through the repo. Roles are one project command, `.claude/commands/briolink.md`, which loads the brief (M10).
+- **Fallback:** at the plan's limit, reasoner work queues and the coder keeps going; with the top tier's limit reached, design jobs wait and routine jobs continue. If unattended use is blocked or the login expires, each job becomes a hand-off package (task, attempts, failures, expected output) the founder runs in the editor extension with `/briolink escalation`; the result returns through the repo. Roles are one project command, `.claude/commands/briolink.md`, which loads the brief (M10).
 - **Exit:** any reasoning model with structured output and cost reporting.
 
 Both adapters record per call: model, prompt and spec version, tokens, cost, duration, result.

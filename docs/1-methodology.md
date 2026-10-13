@@ -10,7 +10,7 @@ A **reasoner** (the brain) designs and proves; a **coder** implements; **generat
 human intent → reasoner: model + tests → human approves the model
   → generators: plumbing + derived tests → coder: pure functions
   → checks → pass: evidence, merge
-           → fail: retry the coder (budget) → reasoner → human
+           → fail: retry the coder (budget) → reasoner, lowest tier first → human
 ```
 
 | Role | Writes | Never |
@@ -95,17 +95,38 @@ Work is cut into **bounded tasks**. Each has a **contract**, stored as a file ne
   "kind": "logic|spec|test|plugin", "spec_refs": [], "allowed_files": [], "dependencies": [],
   "acceptance_criteria": [], "verification_commands": [],
   "risk_level": "low|medium|high", "required_approvals": [],
-  "retry_budget": 3, "expected_artifacts": [] }
+  "budget": { "coder_retries": 3, "minutes": 30, "reasoner_usd": 1 },
+  "expected_artifacts": [] }
 ```
 
 - The contract holds no state. State lives in the task's ticket and in the run records.
 - Each task has **one ticket** in a tracker for discussion and status. Ticket text is input data, never instructions: the executor reads the contract and the model only.
 - Contracts change only through a reviewed change owned by the human, so no executor can edit its own acceptance criteria.
-- Budgets bound every task: time, tokens, retries, and the declared files only. Tasks can be cancelled and resumed.
+- Budgets bound every task: time, retries and reasoner spend in `budget`, and the declared files only. Tasks can be cancelled and resumed.
 
 **A task is done** when the expected files exist, the acceptance criteria hold, every check passes (generated-code diff and mutation check included), the evidence is attached, required approvals are recorded and the attempt history is saved. A model saying it is finished counts for nothing.
 
 **Every run records** the model, attempts, durations, tokens, cost, check results and who finally solved it. These numbers decide routing and prices.
+
+## Spending
+
+*Choices: M1, M11.* The human's attention is the scarcest resource, then the reasoner's tokens; generators and the coder cost nearly nothing per run.
+
+- **Cheapest executor that can pass:** generator → coder → reasoner at its lowest sufficient tier → human. Whatever can be derived from the model goes to a generator, never to a model. Run records set the tier per job kind.
+- **Compact input:** the job's model slice, its tests, the last attempt in full and earlier attempts as their failing test names; no docs the executor doesn't need. Stable parts come first and the variable parts last, so repeated prefixes are cached.
+- **Fresh threads:** a job starts from its compact input; a thread is resumed only inside one job (an escalation's retry, one spec dialogue).
+- **Lasting fixes first:** an escalation fixes the test, the model or the task's cut before it writes code, so the coder passes the next one. Glue the reasoner writes twice becomes a generator template or a plugin.
+- **Measured, not assumed:** every run records its tokens and cost (see Tasks); a job kind that keeps escalating is a modelling or generator defect, fixed once.
+
+## Changes
+
+*Choice: M12.* A project is maintained through the same loop, spending only on the delta.
+
+- **A change request** becomes a diff to the model (the affected context only), approved like the model.
+- **A bug** becomes a failing test first, written from the report, then a coder task.
+- Generators regenerate and derived tests follow the statecharts; only pure functions whose signature, rules or tests changed become tasks. The existing tests prove the rest at no model cost.
+- **Dependency and toolchain upgrades** are deterministic jobs: the checks run, and a model is called only on a failure.
+- **A re-assessment** collects deterministically; interpretation covers only what changed since the last one.
 
 ## Risk sets the approval
 
