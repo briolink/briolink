@@ -26,14 +26,19 @@ Current bindings for the **coder model** and **reasoner model** roles ([bindings
 | One thread per task or spec | `--resume <session>` |
 | A spending cap per run | `--max-budget-usd` |
 
-- **Terms check pending:** Anthropic's current terms for unattended use on a subscription were unclear (sources disagreed as of 2026-10). If they rule it out, the adapter switches to an API key and keeps recording costs.
+**Plan and terms (decision 71, checked 2026-10-13):**
+- **Pro subscription, no API key.** `claude -p` and the Agent SDK draw from the plan's usage limits; Anthropic's help center states they can be used with a Claude plan. Pro has no monthly API credits (those are Max and Team only, and only through an API key).
+- **Limits:** when the plan's limit is reached, the runner queues reasoner work until it resets; the coder model keeps working.
+- **Fallback, no API key:** if unattended use is blocked or the login expires, the control plane turns each reasoner job into a hand-off package (task, attempts, failures, expected output). The founder runs it in Claude Code through the editor extension, and the result returns through the repo.
+- **Accepted risk:** using a consumer plan for client work is a grey area in the Consumer Terms (a reading, not legal advice).
 - **Swap:** any reasoning model with structured output and cost reporting, through the `Reasoner` port.
 
 ## Spikes
 
 - [ ] Coder: tokens per second and time per task through Ollama while the GPU serves other work
 - [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run
-- [ ] Reasoner: Anthropic's terms for unattended use on a subscription checked, answer recorded in decision 58
+- [x] Reasoner: Anthropic's terms checked; answer recorded in decision 71
+- [ ] Reasoner: queueing when the plan's limit is reached, and the hand-off fallback, work end to end
 
 ## What the adapters record
 

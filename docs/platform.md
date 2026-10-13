@@ -42,7 +42,7 @@ Release: preview → founder approval → production (pulled deploys, servers.md
 | Assessment workers | Crawling, browser tests, performance and accessibility measurement | Reach private networks; change state on a target without authorisation |
 | Docs (this repo, client repos) | Decisions, specs, runbooks, evaluations | Hold job state or secrets |
 
-**Where it runs:** on the ops host, sharing the CPU with the warm standby. On a failover takeover, the workers pause and the coder model's priority drops ([servers.md](servers.md#failover)). Artifacts go to Briolink's object storage with lifecycle expiry. A command-line entry point exists only for CI and debugging; like the UI, it only calls the API.
+**Where it runs:** on the ops host, sharing the CPU with the warm standby. On a failover takeover, the workers pause and the coder model's priority drops ([servers.md](servers.md#failover)). Artifacts (the evidence store) go to Briolink's object storage. They are internal workflow data, never expire on their own, and are deleted only by the founder from the control plane (decision 72). A command-line entry point exists only for CI and debugging; like the UI, it only calls the API.
 
 ## Control center (the UI)
 
@@ -309,6 +309,7 @@ A change is done when its criteria hold, its checks pass (or an exception is app
 ## This repo's layout (as code arrives)
 
 ```text
+go.mod                 module github.com/briolink/briolink; go 1.27.0, toolchain go1.27.2 (decision 73)
 AGENTS.md              entry point for any agent (CLAUDE.md only imports it)
 docs/                  design: generic docs, bindings.md, adapters/, markets/
 scripts/               dev and host setup

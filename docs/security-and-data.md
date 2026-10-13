@@ -42,7 +42,8 @@ The test suite for these controls is written before crawling grows (P2).
 - **Secrets** come from a secret store or per-environment injection (Podman secrets on servers, the encrypted store in the control center). Never from Markdown, Git or prompts.
 - **Test accounts:** dedicated, with the least privilege possible.
 - **Redaction:** strip cookies, authorisation headers, tokens, personal data and sensitive query parameters from logs and artifacts.
-- **Retention:** each artifact type has a retention period (open decision O8), enforced by bucket lifecycle rules.
+- **Evidence is internal workflow data** (diffs, logs, test output, screenshots, traces, reports): it never holds client personal data, never expires on its own, and is deleted only by the founder from the control plane, with each deletion in the audit log (decision 72).
+- **Client data deletion duties** (a client leaves, or a retention period ends) are never silent either: the control plane raises a deletion request in the Approvals inbox before the deadline, the founder confirms it, and the audit log records it.
 
 ## AI models and client data
 

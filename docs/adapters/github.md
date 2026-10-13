@@ -9,6 +9,7 @@ Current binding for the **code host** role ([bindings.md](../bindings.md)). Each
 | Container registry with attestations | GHCR with build attestations. A cleanup step keeps the last 10 versions, because private package storage is limited on the Free plan |
 | Read-only pull token | A fine-grained token per client, packages read-only, used by the server's deploy timer |
 | Build-worker access | A fine-grained token per client repo: push to task branches and open pull requests only |
+| Platform home | `briolink/briolink` holds the platform core (control plane, generators, core, plugin catalog) and manages the derived projects' repos (decision 74) |
 | Edge deploys | The edge provider's code-host app, installed once per client org ([cloudflare.md](cloudflare.md)) |
 
 **Provisioning (client module):**

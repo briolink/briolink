@@ -117,5 +117,5 @@ Each adapter doc records its provider's terms. Open items:
 - [ ] Shared compute: client hosting is a grey zone; the risk is accepted ([adapters/oracle.md](adapters/oracle.md#terms-decision-20)).
 - [ ] Pooled and dedicated VPS providers allow hosting for third parties.
 - [ ] The ops host's ISP allows a short-term fallback server and a network hub.
-- [ ] Reasoner model: unattended use on a subscription ([adapters/models.md](adapters/models.md)).
+- [x] Reasoner model: unattended use on the subscription checked, with an editor hand-off fallback ([adapters/models.md](adapters/models.md#reasoner-claude-through-headless-claude-code)).
 - [ ] AI model providers' terms for processing client code and data ([security-and-data.md](security-and-data.md#ai-models-and-client-data)).

@@ -24,7 +24,8 @@ Three kinds of stage:
 
 ## Checklist
 
-- [ ] For each binding in [bindings.md](bindings.md): account, 2FA, card if needed, and the setup and terms items in its adapter doc
+- [x] For each binding in [bindings.md](bindings.md): account, 2FA, card if needed (the setup and spike items in each adapter doc stay open)
+- [ ] Repo moved to `briolink/briolink` before any code lands (decision 74)
 - [ ] Mail sender chosen (O2)
 - [ ] Accountant (Canada) and lawyer questions from [product.md](product.md#questions-for-professionals-canada)
 
@@ -60,5 +61,4 @@ Each spike tests one assumption; a failure only changes the area in brackets. **
 | O4 | Preview domain name | A cheap neutral domain | H2 |
 | O5 | General prices | Validate the USD hypotheses in [product.md](product.md#offers) through B0 | End of B0 |
 | O6 | Regional prices (Tunisia) | See [markets/tunisia.md](markets/tunisia.md#regional-prices) | Before the first client there |
-| O8 | Artifact retention periods | Per artifact type (diffs, logs, screenshots, traces, reports) | P0 |
 | O10 | Passkeys for the control center | Own WebAuthn module after a security review, or TOTP only | After P3 |
