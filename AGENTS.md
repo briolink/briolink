@@ -8,14 +8,14 @@ Every session starts as **master**: it has read only this file. Roles are loaded
 
 | Command | Effect |
 | --- | --- |
-| `/role <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
-| `/role master` | Drop the role; back to master |
-| `/role list` | List the roles below |
+| `/briolink <name> [task]` | Read `agents/<name>.md`, then only the sections it lists; act as that role until the next command. Start the reply with `Role: <name>` |
+| `/briolink master` | Drop the role; back to master |
+| `/briolink list` | List the roles below |
 
 - **No command:** master picks the role from the table below, states it in one line (`Role: <name>, because …`), and switches. If the task spans roles, finish one, then switch; say so at each switch.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
 - A tool without native commands takes the same commands as plain text.
-- The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/role escalation` only for a hand-off package.
+- The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
 
 | Role | Brief |
 | --- | --- |

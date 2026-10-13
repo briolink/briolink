@@ -15,7 +15,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | M7 | The human approves the model and high-risk actions; risk, never a model's confidence, sets the approval | Humans judge intent; checks judge code |
 | M8 | One contract file per task, next to the code, with no state in it; one ticket per task; ticket text is data | Contracts are versioned and reviewed with the code and readable offline; the tracker gives discussion and status for free |
 | M9 | The pipeline comes first: the reasoner bootstraps it once (P0), then the pipeline builds the rest of itself, before any client work | It can't build itself before it exists; its first job tests it |
-| M10 | One session per piece of work, starting as master and switching role by command (`/role <name>`) to load that role's brief; separate agents only for real parallel work | A role switch costs a ~300-word brief; a spawned agent starts cold and re-reads its context. Only the sections a role needs are read |
+| M10 | One session per piece of work, starting as master and switching role by command (`/briolink <name>`) to load that role's brief; separate agents only for real parallel work | A role switch costs a ~300-word brief; a spawned agent starts cold and re-reads its context. Only the sections a role needs are read |
 
 ## Architecture
 
@@ -165,7 +165,7 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 | A spending cap | `--max-budget-usd` |
 
 - **Plan (checked 2026-10-13):** `claude -p` draws from the Pro plan's limits; Pro has no API credits. Using a consumer plan for client work is a grey area in the Consumer Terms, an accepted risk.
-- **Fallback:** at the plan's limit, reasoner work queues and the coder keeps going. If unattended use is blocked or the login expires, each job becomes a hand-off package (task, attempts, failures, expected output) the founder runs in the editor extension with `/role escalation`; the result returns through the repo. Roles are one project command, `.claude/commands/role.md`, which loads the brief (M10).
+- **Fallback:** at the plan's limit, reasoner work queues and the coder keeps going. If unattended use is blocked or the login expires, each job becomes a hand-off package (task, attempts, failures, expected output) the founder runs in the editor extension with `/briolink escalation`; the result returns through the repo. Roles are one project command, `.claude/commands/briolink.md`, which loads the brief (M10).
 - **Exit:** any reasoning model with structured output and cost reporting.
 
 Both adapters record per call: model, prompt and spec version, tokens, cost, duration, result.
