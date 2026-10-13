@@ -36,7 +36,7 @@ Release: preview → founder approval → production (pulled deploys, servers.md
 
 | Component | Does | Never |
 | --- | --- | --- |
-| Control plane | Projects, specs, task queue, scope rules, approvals, audit log, scheduling, infrastructure monitoring ([operations.md](operations.md#control-plane)) | Delegate authorisation to a model; hold production write keys |
+| Control plane | Projects, specs, task dispatch from the code host's issues (decision 75), scope rules, approvals, audit log, scheduling, infrastructure monitoring ([operations.md](operations.md#control-plane)) | Delegate authorisation to a model; hold production write keys |
 | Runner | Executes task contracts: prompts the model, applies edits to allowed files only, runs the checks, retries, escalates, records everything | Change acceptance criteria or skip a check |
 | Build workers | Generate, build, test and mutation-check one task in its own workspace | Reach the network (the code has no external dependencies to fetch); touch files outside the task's allowed paths |
 | Assessment workers | Crawling, browser tests, performance and accessibility measurement | Reach private networks; change state on a target without authorisation |
@@ -50,9 +50,9 @@ Release: preview → founder approval → production (pulled deploys, servers.md
 | --- | --- |
 | Projects | Client, app, type (existing / new), environment, status |
 | Specifications | Requirements, journeys, rules, domain model, route and query specs; the founder discusses and approves them with the reasoner model here |
-| Work queue | Tasks, dependencies, risk, status |
+| Work queue | Tasks, dependencies, risk, status, read from the code host's issues ([work tracking](#work-tracking)) |
 | Runner | Live attempts per task: model, prompt, diff, check output, retries, escalations, cost |
-| Approvals | Escalated tasks and high-risk actions, with reason, impact, rollback plan and evidence |
+| Approvals | High-risk actions outside a repo (evidence and data deletions), with reason, impact, rollback plan and evidence; code is approved as pull-request reviews |
 | Assessments | Scope, routes, coverage, performance, accessibility, findings, evidence |
 | Quality gates | Builds, tests, mutation scores, accessibility, release blockers |
 | Infrastructure | Hosting checks and alerts ([operations.md](operations.md#checks)) |
@@ -100,9 +100,9 @@ The runner is the reasoner/coder test loop, built into the control plane (decisi
 2. Send the coder model, through the `Coder` port: the contract, the function signature, its documentation, the tests, and the previous attempt's failure output.
 3. Apply the returned code to the **allowed files only**. Edits anywhere else are rejected.
 4. Run the checks: `gofmt`, `go vet`, regenerate-and-diff, `go test`, then the mutation check.
-5. **Pass:** record it and queue it for merge (and for approval if the task's risk requires it). **Fail:** retry with the failure output until the retry budget is spent.
+5. **Pass:** record it, open a pull request that closes the task's issue, and post a short summary of the attempts on the issue. The pull request merges after the checks, and after the founder's review if the task's risk requires it. **Fail:** retry with the failure output until the retry budget is spent.
 6. **Escalate to the reasoner model** (decision 56), through the `Reasoner` port, with the task, every attempt and its failures. It fixes the tests or spec, splits the task, or writes the code; the same checks apply.
-7. **Escalate to the founder** if the reasoner's attempt also fails. The task lands in the Approvals inbox with its full history.
+7. **Escalate to the founder** if the reasoner's attempt also fails. The issue is labelled `needs-founder` and assigned to the founder, with a link to its full history.
 
 **What is recorded per task:** model, attempts, durations, tokens and cost, check results, and who finally solved it. These numbers drive routing and prices.
 
@@ -121,8 +121,10 @@ A Go type, decoded strictly (`DisallowUnknownFields`) and checked by a `Validate
   "kind": "logic|spec|test|plugin", "spec_refs": [], "allowed_files": [], "dependencies": [],
   "acceptance_criteria": [], "verification_commands": [],
   "risk_level": "low|medium|high", "required_approvals": [],
-  "retry_budget": 3, "expected_artifacts": [], "status": "queued" }
+  "retry_budget": 3, "expected_artifacts": [] }
 ```
+
+The contract is a file in the project's repo, `tasks/<id>.json`, with no state in it: state lives in the task's issue and in the control plane's records.
 
 **A task is done only when:**
 1. the expected files exist;
@@ -144,8 +146,17 @@ A Go type, decoded strictly (`DisallowUnknownFields`) and checked by a `Validate
 | Risk | Examples | Policy |
 | --- | --- | --- |
 | Low | Docs, isolated pure functions with tests, static analysis | Runs automatically; the checks decide |
-| Medium | Plugin changes, spec changes, preview config | Diff review in the control center, validation on preview |
+| Medium | Plugin changes, spec changes, preview config | Pull-request review by the founder, validation on preview |
 | High | Production DB migrations, DNS, payment or auction rules, deletions, secret or access changes | Founder approval, with impact, backup and rollback plan, recorded |
+
+### Work tracking
+
+Work is tracked on the code host, in the repo the work belongs to (decision 75):
+- **One issue per task**, linking its contract file. Labels give the kind, the risk and the state; milestones follow the roadmap stages; a split task becomes sub-issues.
+- **Contracts change only through a reviewed pull request.** The founder owns `tasks/` and `spec/` as code owner, so no worker or model can change its own acceptance criteria.
+- **Issue text is data** (rule 8). The runner reads the contract file and the spec, never the issue's body or comments. A client's issue is a request that the reasoner model turns into a contract, which the founder approves.
+- **Records stay internal.** Attempts, tokens and cost live in the control plane; the issue gets a summary without cost figures, since client repos are visible to the client.
+- **Code approvals are pull-request reviews**, enforced by protected branches. Approvals outside a repo stay in the control plane.
 
 ## Code rules (decisions 64, 65)
 
@@ -315,6 +326,7 @@ docs/                  design: generic docs, bindings.md, adapters/, markets/
 cmd/control/           composition root: control plane API + control center (one binary)
 cmd/assess/            composition root: assessment worker
 spec/                  the control plane's own API spec (built with our generators)
+tasks/                 task contracts, one JSON file per task (decision 75)
 port/                  interfaces per role, each with its contract tests
 adapter/<role>/<name>/ provider implementations, selected by config
 runner/                task loop: coder model, checks, retries, escalation

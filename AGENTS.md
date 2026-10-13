@@ -83,7 +83,7 @@ Read only the files your task needs. Each file stands on its own and links to th
 | Core | The minimal client-app runtime: plugin registry, config, migrations, generated-code runtime |
 | Plugin | An optional, generic capability (http, auth, media, bake…) with options, chosen per project in `spec/project.json` |
 | Architect | The role that designs a project and picks its plugins: the reasoner model, approved by the founder |
-| Task contract | The description of one bounded task: allowed files, checks, risk, retry budget |
+| Task contract | The description of one bounded task: allowed files, checks, risk, retry budget. A JSON file in `tasks/`, tracked by one issue on the code host |
 | Assessment | One audit run: deterministic tools collect the evidence, and it is interpreted afterwards |
 | Instance | One client in one environment (for example `acme-prod`, `acme-prev`) |
 | Baking | The API renders final HTML and writes it to object storage, so visitors never wait for the API |

@@ -59,7 +59,7 @@ The control plane is headless ([architecture.md](architecture.md#headless-contro
 | Offsite backup, per client | List buckets, read replica metadata | Read data, write or delete |
 | Compute provider | Read metrics, inspect instances | Stop, change or terminate anything |
 | Code host, monitoring | Read metadata and tags | Push, tag or change settings |
-| Code host, build workers | Push to task branches and open pull requests on one repo | Push to `main` or `production` (protected), change settings |
+| Code host, build workers | Push to task branches, open pull requests, comment on and label issues on one repo | Push to `main` or `production` (protected), approve pull requests, change settings |
 | Instance ops API | Read status; request a re-bake or a restore test | Read business data, change config or deploy |
 
 ### Checks
