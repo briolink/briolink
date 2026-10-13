@@ -10,9 +10,12 @@ Current bindings for the **coder model** and **reasoner model** roles ([bindings
   - tokens per second, and time per task while the GPU serves other work;
   - first-pass rate per task kind.
 - **Prompt input:** compact JSON, only the task's slice of the spec (decision 68).
+- **Fallback:** if the model or its GPU is down, logic tasks queue; urgent ones go straight to the reasoner model, at its cost.
 - **Swap:** any local model served over an HTTP API. Bind it per task kind if one model is better at certain tasks.
 
 ## Reasoner: Claude through headless Claude Code
+
+**Depth: deep** ([architecture.md](../architecture.md#binding-depth-and-fallbacks)): we rely on Claude Code's headless mode, its tool restrictions, sessions and budget caps, not only on a model API.
 
 **Invocation (decision 58):**
 

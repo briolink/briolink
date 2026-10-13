@@ -116,7 +116,7 @@ Applies if the shared server fails for any reason, including a provider terminat
 - **Data:** the ops host holds a live copy of every database (Litestream's second replica) and every client's encrypted config.
 - **Pods:** every client's pod is pre-created on the ops host and stopped, with images already pulled.
 - **Tunnels:** the ops host has its **own tunnel per client**.
-- **Primary lease:** one object in the lease store with an epoch number, updated with conditional writes. The primary renews it, and every scheduled job checks it before running.
+- **Primary lease:** one object in the lease store with an epoch number, updated with conditional writes. The primary renews it, and every scheduled job checks it before running. What the primary does when the lease store itself is down is open decision O11 ([roadmap.md](roadmap.md#open-decisions)).
 - **Fallback provider:** a VPS account created in advance and kept unused.
 - **CPU sharing:** on takeover, the ops host pauses assessment and build workers and lowers the coder model's priority ([adapters/tower.md](adapters/tower.md)).
 

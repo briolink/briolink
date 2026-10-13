@@ -36,6 +36,7 @@ The control plane is headless ([architecture.md](architecture.md#headless-contro
 **Hosting:**
 - It runs **on the ops host**, reachable only over the private network, so it survives the loss of the shared server and can drive the failover.
 - The external pinger watches it: the control plane pings every 5 minutes, and silence raises an alert.
+- **Its own data is replicated:** Litestream streams its SQLite database to Briolink's ops bucket, next to copies of the operator config and the encrypted secrets, so any Linux host can restore it from the runbook ([adapters/tower.md](adapters/tower.md#fallback)).
 
 ### Security model
 

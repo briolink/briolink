@@ -55,6 +55,26 @@ Nothing in the core names a provider. Today's choices are listed in [bindings.md
 | Provisioning | Declarative infrastructure with encrypted state | Client and platform resources |
 | Crawler tools | Browser automation, lab performance, accessibility checks | Assessment workers |
 
+## Binding depth and fallbacks
+
+Agnostic doesn't mean shallow (decision 76). A binding has a **depth**, and every binding, deep or thin, has a **fallback** and an **exit**.
+
+| Depth | Meaning | Roles today |
+| --- | --- | --- |
+| **Thin** | The adapter is mostly config for a standard protocol (S3, SMTP, WireGuard, OCI, an HTTP model API). Swapping is a config change plus the contract tests | Object storage, lease store, offsite backup, compute, ops host, private network, coder model, notifier, external pinger, mail sender, provisioning |
+| **Deep** | We use the provider's full feature set on purpose, because building it ourselves would cost more than leaving later. Chosen only for large, stable providers. Leaving is painful but planned | Edge, code host, reasoner model |
+
+**What a deep binding still owes the core:**
+- The core reaches it through its port only. Provider features are used inside the adapter, or in the provider's own config files (CI workflows, edge rules), never in core code.
+- Its adapter doc lists every provider feature we rely on, mapped to the role's contract, so the exit has a known size.
+- What it holds that we need stays exportable in a standard form (Git, JSON, S3 objects, OCI images), and is copied to infrastructure we control.
+
+**Fallback and exit are different things:**
+- **Fallback:** how we keep working, possibly degraded, while the binding is down or the account is lost. It is prepared in advance, like the ops host standing in for the shared server ([servers.md](servers.md#failover)).
+- **Exit:** the replacement we would move to for good, and what it must provide (each adapter doc's swap notes).
+
+Today's fallback for each role is listed in [bindings.md](bindings.md#if-a-binding-fails); the details are in each adapter doc.
+
 **Part of the product, not roles:** Go, SQLite and its driver, Litestream, Podman + Quadlet, vanilla JS and esbuild, our generators, the app core and the plugin catalog.
 
 ## Headless control plane

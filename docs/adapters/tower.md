@@ -29,6 +29,13 @@ Current binding for the **ops host** role ([bindings.md](../bindings.md)): an al
 - [ ] The hub inside WSL2 with mirrored networking receives forwarded traffic and routes between peers
 - [ ] Spokes recover after a public IP change within ~2 min
 
+## Fallback
+
+Client sites and APIs don't depend on the ops host; only the platform's own work does.
+- **Prepared in advance:** the control plane's data is replicated off the machine ([operations.md](../operations.md#control-plane)); the code and the task contracts are in the code host.
+- **If it fails:** the warm standby, the runner, the coder model and the hub stop. Rent a VPS, restore the control plane from the runbook, and move the hub there. The coder model waits for a GPU host; logic tasks queue meanwhile.
+- **Accepted risk:** while it is down, the shared server runs without a standby. If both fail together, failover is manual, onto the fallback VPS account.
+
 ## Swap notes
 
 Any always-on Linux machine with a GPU for the coder model can take the role, owned or rented. Without a GPU, the coder model moves to a separate GPU host reached over the private network.
