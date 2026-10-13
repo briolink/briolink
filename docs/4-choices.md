@@ -83,7 +83,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 
 ## Bindings in detail
 
-Each entry: **fallback** (how we keep working while it fails, prepared in advance) and **exit** (the replacement). Open checks are in [5-roadmap.md](5-roadmap.md#spikes).
+Each entry: **fallback** (how we keep working while it fails, prepared in advance) and **exit** (the replacement). Open checks are the spike issues ([5-roadmap.md](5-roadmap.md#checklist-spikes-and-open-decisions)).
 
 ### E5–E7 · Cloudflare (edge, object storage, lease)
 

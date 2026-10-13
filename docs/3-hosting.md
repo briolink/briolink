@@ -205,7 +205,7 @@ If the shared server fails for any reason, including the provider closing the ac
 | Start | Restore each database from the local copy, start the pods | ~1–2 min for 150 |
 | Reroute | The edge's DNS API points each API hostname at the ops host's tunnel | Seconds |
 
-Two servers can never write at once, and failover depends neither on the private network nor on the failed server. A lease store outage is open decision O11 ([5-roadmap.md](5-roadmap.md#open-decisions)). **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
+Two servers can never write at once, and failover depends neither on the private network nor on the failed server. A lease store outage is [issue #21](https://github.com/briolink/briolink/issues/21) (O11). **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
 
 ## Trials (A15)
 

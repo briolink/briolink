@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-13):** design judged stable enough for P0; six P0 issues opened (#2–#7); `kind:infra` label added (A4); the pilot/benchmark wording replaced by a P0 acceptance set in the exit criteria and spikes, so #6 and #7 no longer need client code.
-- **Lead:** start on [#2](https://github.com/briolink/briolink/issues/2) (P0 skeleton: `go.mod`, layout, CI) — it has no dependencies. [#5](https://github.com/briolink/briolink/issues/5) (reasoner unattended on the subscription) can run in parallel; it needs the founder's own login and a terms check.
+- **Last (2026-10-13):** both branch rulesets created; the roadmap's checklist, spikes and open decisions moved into 27 issues (#9–#35), labelled and milestoned; the roadmap trimmed to stages only (A4).
+- **Lead:** [#3](https://github.com/briolink/briolink/issues/3) (spec format v0) and [#4](https://github.com/briolink/briolink/issues/4) (offline build container) are both unblocked now that #2 is merged. [#5](https://github.com/briolink/briolink/issues/5) (reasoner unattended, needs the founder's own login) and [#13](https://github.com/briolink/briolink/issues/13) (coder throughput, needs only the ops host's GPU) have no dependencies and can run alongside.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
@@ -25,58 +25,6 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 | **S · Scale selectively** | Queues, worker pools, regions, usage accounting, each with a measured problem | — |
 | **B0 · Validate the audit offer** (any time) | A sample report, the authorisation and data-handling procedure, price tests with 3–5 real prospects | A repeatable scope, a usable report, evidence that someone pays |
 
-## Checklist
+## Checklist, spikes and open decisions
 
-- [x] An account with 2FA (and a card where needed) for each binding in [4-choices.md](4-choices.md#bindings)
-- [x] Repo at `briolink/briolink`
-- [x] The bot: GitHub App `briolink-bot` created in the org, private key generated (2026-10-13) and kept offline by the founder (A22)
-- [x] The bot installed in the `briolink` org (2026-10-13); its IDs recorded in [4-choices.md](4-choices.md#e13--github) until `operator.json` exists
-- [ ] With the runner (P0): the bot's key in the control plane's secret store, and the pull-request author check
-- [x] Labels and milestones created; `CODEOWNERS` committed (2026-10-13)
-- [x] The `main` ruleset (pull request, code-owner review, founder bypass) and the `task/*` ruleset (bot + founder only) created (2026-10-13)
-- [ ] This checklist, the spikes and the open decisions move to issues, leaving the stages here (A4)
-- [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
-- [ ] Providers' terms: pooled and dedicated providers allow third-party hosting; the ops host's ISP allows a short-term fallback server and a hub; model providers' terms for client code and data
-
-## Spikes
-
-Each tests one assumption; a failure changes only the area in brackets.
-
-**Pipeline (P0)**
-- [ ] Offline build container per task: `go build` and `go test` need no network, with dependencies vendored [isolation]
-- [ ] Statechart v0: the derived tests plus the reasoner's boundary values kill every mutant of the guards and actions on an `acme` entity in the P0 acceptance set [statecharts]
-- [ ] The `sqlite` plugin's generator: preparing every statement against the migrated schema catches wrong tables, columns (in `WHERE` too), counts and parameters, and the declared result columns match the database's [generators]
-- [ ] The mutation checker catches every mutant on the P0 acceptance set's pure functions, cross-checked with Gremlins on them: every mutant one tool kills and the other misses is explained [quality]
-- [ ] Port contract tests pass on two object-storage adapters [ports]
-- [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
-- [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
-- [ ] Reasoner tiers: on the P0 acceptance set's escalations, the routine tier's solve rate and cost against the top tier's; whether a cheap replan before escalating (the routine tier re-cuts the task or rewrites the plan from the failure, then the coder retries) solves enough failures to skip escalations; proposes the first changes to `spec/routing.json` [reasoner]
-- [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]
-
-**Hosting (H1)**
-- [ ] 150 dummy pods on a 12 GB server under fake traffic: real memory per app, tunnel agent and pod; CPU during simultaneous live events [capacity]
-- [ ] Rootless Podman + Quadlet on arm64 Ubuntu: pods start at boot, cgroup limits apply, the per-UID nftables rule blocks metadata, the private network and the provider range [isolation]
-- [ ] One shared Litestream daemon with two replicas per database; time to restore 150 small databases on the ops host [failover]
-- [ ] Lease with conditional writes; the primary's behaviour when it can't confirm the lease (O11) [failover]
-- [ ] The edge's DNS API repoints an API hostname between tunnels: time to take effect [failover]
-- [ ] A tunnel moved to another server keeps its ID, with no DNS change [moves]
-- [ ] The serving contract test passes on the edge adapter, preview and the trial system [serving]
-- [ ] `ops.<brand domain>` → private address with a DNS-01 certificate [control center]
-- [ ] Ops host: public IPv4 (no CGNAT) and the hub's UDP port forwarded; the hub inside WSL2 routes between peers; spokes recover within ~2 min of an IP change [network]
-- [ ] Edge: conditional R2 reads return correct 304s; what visitors see past 100,000 Function requests a day; a second Pages project takes `preview.` and Access covers `*.pages.dev`; the preview Access redirect workaround; a Cache Rule honours `max-age=2` on `/live/*.json`; EU-jurisdiction buckets work with a custom domain and bindings [edge]
-- [ ] Garage on arm64 behaves like R2 for the storage plugin's calls; bucket quotas hold [trials]
-- [ ] Whether a PAYG Oracle tenancy is exempt from idle reclaim [shared compute]
-- [ ] Multi-arch builds stay within the free CI minutes and private package storage [code host]
-
-**Assessment (P2)**
-- [ ] Lighthouse spread across 5 runs of the same page on the ops host [audit quality]
-- [ ] Rate limits and bot blocks when crawling typical small-business hosts from the ops host's connection [audit coverage]
-
-## Open decisions
-
-| # | Decision | Options and recommendation | By |
-| --- | --- | --- | --- |
-| O2 | Mail sender | Any provider with SMTP or an HTTP API, behind the mail port | P1 |
-| O4 | Preview domain | A cheap neutral domain | H2 |
-| O10 | Passkeys for the control center | Own WebAuthn module after a security review, or TOTP only | After P3 |
-| O11 | The primary when the lease store is unreachable | Today it stops itself, so a lease-store outage takes every live feature down although no takeover is possible. Recommendation: keep running while the ops host, reached over the private network, confirms it has not claimed the lease; stop only when cut off from both | H1 |
+Moved to issues (A4), labelled `kind:infra`, `kind:spike` or `kind:decision`, in the matching milestone where one exists: [P0](https://github.com/briolink/briolink/milestone/1), [H1](https://github.com/briolink/briolink/milestone/2), [P2](https://github.com/briolink/briolink/milestone/3), [B0](https://github.com/briolink/briolink/milestone/4). O2, O4 and O10 have no milestone yet (P1, H2 and after-P3 don't exist as milestones) — [#32](https://github.com/briolink/briolink/issues/32), [#33](https://github.com/briolink/briolink/issues/33), [#34](https://github.com/briolink/briolink/issues/34).
