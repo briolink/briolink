@@ -46,6 +46,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | A19 | Evidence is internal workflow data, never client personal data; it never expires and is deleted only by the founder, audited. Client data deletion duties become approvals | Nothing is deleted silently; legal deadlines are still met |
 | A20 | The control center is private: on the private network only, under a real hostname with a DNS-01 certificate; password (argon2id) + TOTP; secrets sealed with AES-256-GCM | HTTPS on a real name with nothing listening publicly; standard library crypto |
 | A21 | A hub-and-spoke private network; servers dial out and keep zero inbound ports | No exposed admin surface |
+| A22 | Two identities on the code host: the founder (sessions, reviews, merges) and the bot (every write made by automation). Automation never acts as the founder; the founder is the only approver, and only the founder can merge into `main` | A review means something only if the reviewer isn't the author; the bot's reach is bounded by its own permissions; anyone can tell who did what |
 
 ## Execution
 
@@ -71,7 +72,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | E11 | Ops host | The tower: an always-on Windows 11 machine (12 threads, 32 GB, 16 GB GPU) running WSL2 | Thin | Already owned; its GPU runs the coder |
 | E12 | Private network | WireGuard (`wg-quick`), hub on the ops host | Thin | An open standard with no coordination service or third-party account |
 | E13 | Code host | GitHub: the platform in `briolink/briolink`, each client in its own org; Issues, Actions, GHCR | Deep | Stable, and recognised by clients (A4) |
-| E14 | Coder model | `qwen3-coder:30b` through Ollama on the ops host's GPU, as the routing table's `coder` tier | Thin | Free per token; good at pure functions (M2). A hosted small model can take the tier through its own `Coder` adapter if the coder spike shows it pays |
+| E14 | Coder model | `qwen3-coder:30b` through Ollama on the ops host's GPU, as the routing table's `coder` tier | Thin | Free per token; passed every pure function in the pilot and led the earlier benchmarks (M2) |
 | E15 | Reasoner model | Claude through headless Claude Code, on the founder's Pro subscription, never an API key; two tiers mapped in the routing table ([2-architecture.md](2-architecture.md#routing)): `routine` = Sonnet, `top` = Opus | Deep | Reuses the plan already paid for; the routine tier stretches the plan's limits (M11); the founder's split, refined by run records |
 | E16 | Notifier | Telegram bot, e-mail fallback | Thin | Free, immediate |
 | E17 | External pinger | healthchecks.io (free) | Thin | A dead-man's switch outside our infrastructure |
@@ -146,7 +147,8 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 | Work tracking | Issues, the standard labels ([2-architecture.md](2-architecture.md#work-tracking)), milestones per stage, sub-issues for split tasks |
 | CI on tags | Actions: `ci.yml` (vet, tests, JS lint, contract test), `release.yml` (on tag: tests, multi-arch image, attestation) |
 | Registry with attestations | GHCR; a cleanup step keeps the last 10 versions (private storage is limited on Free) |
-| Keys | Fine-grained tokens, one repo each, with the scopes in [3-hosting.md](3-hosting.md#control-plane) |
+| Bot identity (A22) | A GitHub App, `briolink-bot`, owned by the `briolink` org and installed on each repo it works on (client orgs install it too). Permissions: contents, pull requests and issues read and write, metadata read; never administration or workflows, so it can't change settings or CI. Its private key lives in the control plane's secret store; it mints one-hour installation tokens. A ruleset lets only the App create `task/*` branches |
+| Keys | Deploy timer: a fine-grained, packages read-only token per client; other scopes in [3-hosting.md](3-hosting.md#control-plane) |
 
 - **Provisioned per client:** the repo from the template, branch protection, required reviews, `CODEOWNERS`, the labels, Actions variables.
 - **Fallback:** the ops host keeps a mirror of every repo (`git clone --mirror`, every few minutes) and a nightly JSON export of issues, comments, labels and milestones in Briolink's ops bucket. During an outage running sites are unaffected; the runner works on held tasks from the mirror and pushes later; an urgent fix can be built on the ops host and loaded with `podman save` / `podman load` over the private network, with the founder's approval.
@@ -154,7 +156,7 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 
 ### E14–E15 · Models
 
-**Coder.** Ollama's HTTP API on the private interface. To measure in P0: tokens per second and time per task while the GPU is shared; first-pass rate per task kind. **Fallback:** logic tasks queue; urgent ones go to the reasoner, at its cost. **Exit:** any local model behind an HTTP API, bound per task kind if useful.
+**Coder.** Ollama's HTTP API on the private interface. To measure in P0: tokens per second and time per task while the GPU is shared; first-pass rate per task kind. **Fallback:** if the local setup fails, the `coder` tier switches to Claude Haiku through a hosted `Coder` adapter (one line in the routing table, by pull request), at its per-token cost or the plan's limits. **Exit:** any local model behind an HTTP API, bound per task kind if useful.
 
 **Reasoner.** Deep: we rely on Claude Code's headless mode, tool restrictions, sessions and budget caps.
 

@@ -29,6 +29,7 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 
 - [x] An account with 2FA (and a card where needed) for each binding in [4-choices.md](4-choices.md#bindings)
 - [x] Repo at `briolink/briolink`
+- [ ] With the runner (P0): the bot, a GitHub App owned by the org (A22), and the pull-request author check
 - [ ] When the first code lands: branch protection on `main`, `CODEOWNERS`, labels, milestones per stage; then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
 - [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
 - [ ] Providers' terms: pooled and dedicated providers allow third-party hosting; the ops host's ISP allows a short-term fallback server and a hub; model providers' terms for client code and data
@@ -43,7 +44,7 @@ Each tests one assumption; a failure changes only the area in brackets.
 - [ ] The `sqlite` plugin's generator: preparing every statement against the migrated schema catches wrong tables, columns (in `WHERE` too), counts and parameters, and the declared result columns match the database's [generators]
 - [ ] The mutation checker reproduces the pilot's 32/32 on the same functions, cross-checked with Gremlins on them: every mutant one tool kills and the other misses is explained [quality]
 - [ ] Port contract tests pass on two object-storage adapters [ports]
-- [ ] Coder: tokens per second and time per task while the GPU is shared; on the same benchmark, first-pass rate and cost per task against a hosted small model in the `coder` tier [coder]
+- [ ] Coder: tokens per second and time per task while the GPU is shared [coder]
 - [ ] Reasoner: the subscription login stays valid unattended; JSON output gives cost and session ID; `--max-budget-usd` stops a run; queueing at the limit and the hand-off fallback work end to end [reasoner]
 - [ ] Reasoner tiers: on the benchmark's escalations, the routine tier's solve rate and cost against the top tier's; whether a cheap replan before escalating (the routine tier re-cuts the task or rewrites the plan from the failure, then the coder retries) solves enough failures to skip escalations; proposes the first changes to `spec/routing.json` [reasoner]
 - [ ] Code host fallback: restore one repo with its issues from the mirror and the export into Forgejo [code host]

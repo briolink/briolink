@@ -246,7 +246,7 @@ Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers �
 | Offsite backup, per client | List buckets, read replica metadata | Read data, write, delete |
 | Compute provider | Read metrics, inspect instances | Stop, change, terminate |
 | Code host, monitoring | Read metadata and tags | Push, tag, change settings |
-| Code host, build workers | Push task branches, open pull requests, comment on and label issues, on one repo | Push `main` or `production`, approve, change settings |
+| Code host, bot (build workers, runner) | Create and push `task/*` branches, open pull requests, comment on and label issues, on the repos it is installed on | Push `main` or `production`, approve, merge, change settings or CI |
 | Instance ops API | Read status; request a re-bake or restore test | Read business data, change config, deploy |
 
 ### Checks
