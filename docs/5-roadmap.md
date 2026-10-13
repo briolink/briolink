@@ -30,7 +30,7 @@ The pipeline comes first (M9): no client work goes through it until P0 and P1 pa
 - [x] An account with 2FA (and a card where needed) for each binding in [4-choices.md](4-choices.md#bindings)
 - [x] Repo at `briolink/briolink`
 - [x] The bot: GitHub App `briolink-bot` created in the org, private key generated (2026-10-13) and kept offline by the founder (A22)
-- [ ] The bot installed on `briolink/briolink` only; its App ID and installation ID in the operator config (not secrets)
+- [x] The bot installed in the `briolink` org (2026-10-13); its IDs recorded in [4-choices.md](4-choices.md#e13--github) until `operator.json` exists
 - [ ] With the runner (P0): the bot's key in the control plane's secret store, and the pull-request author check
 - [ ] When the first code lands: branch protection on `main`, `CODEOWNERS`, labels, milestones per stage; then this checklist, the spikes and the open decisions move to issues, leaving the stages here (A4). Until then, design work goes straight to `main`
 - [ ] Oracle tenancy on Pay As You Go; `cpu-keeper` on from the day the VM is created
