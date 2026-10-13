@@ -13,7 +13,7 @@ The only doc that names today's providers, machines, models and brand. Generic d
 | Compute, pooled and dedicated | netcup ARM first; Contabo or OVH as alternatives; EU data centres | [servers.md](servers.md#hosting-tiers) | |
 | Ops host | The tower: Windows 11 + WSL2 | [adapters/tower.md](adapters/tower.md) | Also the private-network hub; its location is in the operator config |
 | Private network | WireGuard, hub on the ops host | [operations.md](operations.md#private-network) | |
-| Code host | GitHub: the platform in `briolink/briolink`, each client in the client's own org; Actions, GHCR | [adapters/github.md](adapters/github.md) | The platform repo manages the derived projects' repos (decision 74) |
+| Code host | GitHub: the platform in `briolink/briolink`, each client in the client's own org; Issues, Actions, GHCR | [adapters/github.md](adapters/github.md) | The platform repo manages the derived projects' repos (decision 74); work is tracked in each repo's issues (decision 75) |
 | Coder model | `qwen3-coder:30b` through Ollama's HTTP API, on the ops host's GPU | [adapters/models.md](adapters/models.md) | |
 | Reasoner model | Claude (Opus) through headless Claude Code, on the founder's Pro subscription (no API key) | [adapters/models.md](adapters/models.md) | Plan limits apply; fallback is a hand-off through the editor extension (decision 71) |
 | Notifier | Telegram bot, e-mail fallback | — | |

@@ -46,7 +46,7 @@ Nothing in the core names a provider. Today's choices are listed in [bindings.md
 | Compute | A Linux host (arm64 or amd64) with systemd, rootless containers and cgroup v2; a provider API that can stop an instance | Client pods, trial system |
 | Ops host | An always-on machine for the control plane, the warm standby, the coder model and the network hub | Operator side |
 | Private network | An encrypted peer network that servers dial out to | Admin access, replicas, metrics |
-| Code host | Git with protected branches; CI on tags; a container registry with build attestations and read-only pull tokens | Client repos, deploys |
+| Code host | Git with protected branches and required reviews by code owners; CI on tags; a container registry with build attestations and read-only pull tokens; issues with labels and milestones, readable and writable through an API | Client repos, deploys, work tracking and code approvals (decision 75) |
 | Coder model | Runs locally with no per-token cost; turns a task contract into code | Runner |
 | Reasoner model | Specs, tests and escalations; structured output; cost reporting | Runner, Specifications area |
 | Notifier | Push alerts, de-duplicated, with a fallback channel | Control plane |

@@ -10,15 +10,18 @@ Current binding for the **code host** role ([bindings.md](../bindings.md)). Each
 | Read-only pull token | A fine-grained token per client, packages read-only, used by the server's deploy timer |
 | Build-worker access | A fine-grained token per client repo: push to task branches and open pull requests only |
 | Platform home | `briolink/briolink` holds the platform core (control plane, generators, core, plugin catalog) and manages the derived projects' repos (decision 74) |
+| Work tracking | Issues (one per task, linking `tasks/<id>.json`), labels for kind, risk and state (`needs-founder` for escalations), milestones per roadmap stage, sub-issues for split tasks |
+| Code approvals | Required pull-request review; `CODEOWNERS` makes the founder the owner of `tasks/` and `spec/` |
 | Edge deploys | The edge provider's code-host app, installed once per client org ([cloudflare.md](cloudflare.md)) |
 
 **Provisioning (client module):**
 - the repo, created from the template;
-- branch protection;
+- branch protection, required reviews and `CODEOWNERS`;
+- the standard labels;
 - Actions variables.
 
 ## Spikes
 
 - [ ] Multi-arch builds stay within the free Actions minutes and private package storage
 
-**Swap:** any Git host with protected branches, tag-triggered CI and an OCI registry with attestations. The deploy timer only needs a registry URL and a read-only token.
+**Swap:** any Git host with protected branches, required reviews, an issue tracker with an API, tag-triggered CI and an OCI registry with attestations. The deploy timer only needs a registry URL and a read-only token.
