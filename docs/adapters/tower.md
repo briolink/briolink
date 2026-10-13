@@ -4,8 +4,7 @@ Current binding for the **ops host** role ([bindings.md](../bindings.md)): an al
 
 ## Setup
 
-- **WSL2:** capped at 16 GB / 8 threads with mirrored networking ([../../scripts/wslconfig.example](../../scripts/wslconfig.example)). ~9 GB of that covers the standby at full capacity. WSL starts outside the login session and starts automatically (decision 12).
-- **Dev tools:** [../../scripts/setup-wsl-dev.sh](../../scripts/setup-wsl-dev.sh).
+- **WSL2:** capped at 16 GB / 8 threads with 8 GB swap, mirrored networking and DNS tunnelling (Windows `.wslconfig`). ~9 GB of that covers the standby at full capacity. WSL starts outside the login session and starts automatically (decision 12).
 - **Hardware:** BitLocker on the drive holding database copies; a UPS if possible.
 
 ## Sharing with the coder model and workers

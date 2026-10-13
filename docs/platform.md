@@ -312,7 +312,6 @@ A change is done when its criteria hold, its checks pass (or an exception is app
 go.mod                 module github.com/briolink/briolink; go 1.27.0, toolchain go1.27.2 (decision 73)
 AGENTS.md              entry point for any agent (CLAUDE.md only imports it)
 docs/                  design: generic docs, bindings.md, adapters/, markets/
-scripts/               dev and host setup
 cmd/control/           composition root: control plane API + control center (one binary)
 cmd/assess/            composition root: assessment worker
 spec/                  the control plane's own API spec (built with our generators)
