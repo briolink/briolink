@@ -17,18 +17,32 @@ repo's worktree (2026-10-14, repo at commit `7923024`):
 | Same, with `GOCACHE`/`GOMODCACHE` mounted from the host, first pass | ~8.5s |
 | Same, second pass (build cache hit) | ~0.5s |
 
-The repo has no external module today (A6, stdlib only: no `go.sum`), so
-there is nothing to vendor yet — `go mod vendor` reports "no dependencies to
-vendor". `go mod download` cannot run inside the container (no network), so
+`go mod download` cannot run inside the per-task container (no network), so
 a dependency's fetch always happens outside it, once, with network, not per
 task — either `go mod vendor`, committed, or a pre-seeded module cache
-mounted read-only at `-v <host-gomodcache>:/go/pkg/mod` above. A6 now picks
+mounted read-only at `-v <host-gomodcache>:/go/pkg/mod` above. A6 picks
 between them per dependency: vendor by default; a pre-seeded cache only for
 one whose vendored tree would bloat every clone, and only in this repo and
 its platform forks — a client project repo still vendors it. `modernc.org/sqlite`
 (137 MB vendored, [#13](https://github.com/briolink/briolink/issues/13),
 [#41](https://github.com/briolink/briolink/issues/41)) takes the cache path
 here; its `go.sum` entry still pins the exact version the cache must hold.
+
+**Seeding, measured (2026-10-14):** `seed-modcache.sh <dest>` runs `go mod
+download` inside this same pinned image, with network, writing to a
+host-mounted `<dest>`; that is the only step that touches the network, and
+it runs on the ops host, not per task. For this repo's one dependency the
+seeded cache is 298 MB (`go mod download`'s zip cache plus the extracted
+source for every module in the build list — both are required: a cache
+trimmed to only the extracted trees failed with `GOPROXY=off`, because Go
+verifies the extracted source against the zip cache's hashes before
+trusting it). Mounting that cache read-only and building with `GOPROXY=off`
+(stronger than `--network none`: no proxy address is even consulted) —
+`go build ./...`, `go vet ./...` and `go test ./...` all passed against the
+`sqlite-generator` branch, using the Go 1.27.2 toolchain the image pins, no
+network reachable. The per-task mount above is unaffected: the same
+`-v <host-gomodcache>:/go/pkg/mod` already in the Recipe is where the
+seeded cache goes.
 
 ## What breaks without network
 
@@ -62,6 +76,9 @@ docker run --rm --network none \
   <image> sh -c "gofmt -l . && go vet ./... && go build ./... && go test ./..."
 ```
 
-The two cache mounts are optional (cold runs pass without them, ~10s) but
-cut a warm task to well under a second; they are the same path a vendored
-or pre-seeded module cache would use once a dependency exists.
+The `go-build` cache mount is optional (cold runs pass without it, ~10s) but
+cuts a warm task to well under a second. The `gomodcache` mount was
+optional while the repo had no external module; now that `modernc.org/sqlite`
+is a dependency (not vendored, per A6's exception above), it's required for
+any task that builds or tests against it — run `seed-modcache.sh <dest>`
+once (whenever `go.sum` changes) and pass that `<dest>` as `<host-gomodcache>`.
