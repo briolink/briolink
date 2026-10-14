@@ -201,11 +201,18 @@ If the shared server fails for any reason, including the provider closing the ac
 | Step | How | Time |
 | --- | --- | --- |
 | Detect | Checks every 30 s from the ops host and the external pinger; 3 failures in a row | ~1–1.5 min |
-| Claim | The ops host takes the lease with a new epoch. The old primary stops itself (apps and jobs stopped, databases read-only) when it can't confirm the lease; best effort, the ops host also stops it through the provider's API with a narrow key | Seconds |
+| Claim | The ops host takes the lease with a new epoch. The old primary stops itself (apps and jobs stopped, databases read-only) on its next refused renew, or when neither a renew nor a promise is valid (below); best effort, the ops host also stops it through the provider's API with a narrow key | Seconds |
 | Start | Restore each database from the local copy, start the pods | ~1–2 min for 150 |
 | Reroute | The edge's DNS API points each API hostname at the ops host's tunnel | Seconds |
 
-Two servers can never write at once, and failover depends neither on the private network nor on the failed server. A lease store outage is [issue #21](https://github.com/briolink/briolink/issues/21) (O11). **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
+**The lease (A23):** one object `{epoch, holder}`, written only with `If-Match` on the last etag. Each side times it on its own monotonic clock, never a shared wall clock.
+
+- **Renew:** the primary renews every 10 s. The lease is valid until the moment it sent its last successful renew, plus 30 s.
+- **Claim:** the ops host, the only claimant, claims after it has seen the same etag unchanged for 45 s and its last promise has ended, plus a margin. It then writes epoch+1 with `If-Match` on that etag.
+- **Promise:** when a renew fails without a refusal (timeout, 5xx), the primary asks the ops host over the private network. The ops host answers "not claimed, epoch N, valid for 30 s" only while it isn't claiming, and records each promise's end.
+- **Stop:** a refused renew (412) means stop at once, whatever the ops host says. Otherwise the primary stops when neither a renew nor a promise is valid. Scheduled jobs check the same way.
+
+Two servers can never write at once, and failover depends neither on the private network nor on the failed server: the network only lets the primary stay up through a lease store outage. Accepted gap: if the lease store is down and the primary dies, nothing fails over until the store is back. **After:** a replacement server within 24 h, restored from the ops host's replicas; clients moved one by one; failback by hand only. Rehearse before the first client launch, then yearly.
 
 ## Trials (A15)
 

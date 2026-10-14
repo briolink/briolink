@@ -47,6 +47,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | A20 | The control center is private: on the private network only, under a real hostname with a DNS-01 certificate; password (argon2id) + TOTP; secrets sealed with AES-256-GCM | HTTPS on a real name with nothing listening publicly; standard library crypto |
 | A21 | A hub-and-spoke private network; servers dial out and keep zero inbound ports | No exposed admin surface |
 | A22 | Two identities on the code host: the founder (sessions, reviews, merges) and the bot (every write made by automation). Automation never acts as the founder; the founder is the only approver, and only the founder can merge into `main` | A review means something only if the reviewer isn't the author; the bot's reach is bounded by its own permissions; anyone can tell who did what |
+| A23 | The lease has one claimant, the ops host. When the lease store is unreachable, the primary keeps running on a 30 s promise from the ops host over the private network (not claimed, not claiming); the ops host never claims before its last promise ends. The primary stops on a refused renew, or when neither a renew nor a promise is valid ([#21](https://github.com/briolink/briolink/issues/21), O11) | A lease store outage alone no longer takes live features down; the claim still goes only through the lease store, so failover still needs neither the network nor the failed server |
 
 ## Execution
 
@@ -104,7 +105,7 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 - **Preview behind Access:** one Access application covers `preview.` and `preview-api.` with credentials allowed; in preview, `boot.js` calls `/v1/health` and on failure sends the top window to `preview-api.<domain>/_access?return=<url>`, which signs the tester in and redirects back.
 - **Monitoring key:** reads analytics, zone, tunnel and Pages status (usage through GraphQL analytics); changes nothing.
 - **Provisioned:** zone settings (SSL Full strict, HSTS, AI-crawler block) and rules; Pages projects, domains, env vars, bindings; R2 buckets (site, media, originals, private) with location hint `weur`; both tunnels and their records; Access applications.
-- **Fallback:** no hot fallback for a provider-wide outage, an accepted risk (DNS is part of it, so a second CDN wouldn't be reachable). A lost client account affects only that client: rebuild from its repo and offsite backup, then re-bake. Lease unreachable: O11.
+- **Fallback:** no hot fallback for a provider-wide outage, an accepted risk (DNS is part of it, so a second CDN wouldn't be reachable). A lost client account affects only that client: rebuild from its repo and offsite backup, then re-bake. Lease unreachable: the ops host's promise (A23).
 - **Exit:** another CDN with edge functions and S3-compatible storage, or a small Go request server behind any CDN (which also removes the request quota). It must pass the serving contract test.
 
 ### E8 · Backblaze B2
