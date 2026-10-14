@@ -36,15 +36,15 @@ FAIL=0
 # r2 <method> <key> [curl args...] — prints "<status> <etag> <seconds>",
 # the body goes to $WORK/body.
 r2() {
-  local method=$1 key=$2; shift 2
+  local method=$1 key=$2 id=$BASHPID; shift 2 # captured once: a redirect expands in the forked child
   curl -sS -K <(printf 'user = "%s:%s"\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY") \
     --aws-sigv4 "aws:amz:auto:s3" -X "$method" "$@" \
-    -D "$WORK/hdr.$BASHPID" -o "$WORK/body.$BASHPID" \
-    -w '%{http_code} %{time_total}\n' "$BASE/$key" >"$WORK/out.$BASHPID"
+    -D "$WORK/hdr.$id" -o "$WORK/body.$id" \
+    -w '%{http_code} %{time_total}\n' "$BASE/$key" >"$WORK/out.$id"
   local code time etag
-  read -r code time <"$WORK/out.$BASHPID"
-  etag=$(grep -i '^etag:' "$WORK/hdr.$BASHPID" | tr -d '\r' | cut -d' ' -f2- || true)
-  mv -f "$WORK/body.$BASHPID" "$WORK/body"
+  read -r code time <"$WORK/out.$id"
+  etag=$(grep -i '^etag:' "$WORK/hdr.$id" | tr -d '\r' | cut -d' ' -f2- || true)
+  mv -f "$WORK/body.$id" "$WORK/body"
   echo "$code ${etag:--} $time"
 }
 
