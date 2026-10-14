@@ -1,3 +1,0 @@
-module example.com/acme
-
-go 1.27.0
