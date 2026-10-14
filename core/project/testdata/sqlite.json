@@ -1,0 +1,17 @@
+{
+  "format": "v0",
+  "name": "sqlite",
+  "version": "0.1.0",
+  "purpose": "SQLite access, migrations and the spec/queries generator",
+  "options": [
+    {"name": "open_database_cap", "type": "int", "default": 32, "doc": "Most databases open at once"},
+    {"name": "pragmas", "type": "[]string", "default": ["journal_mode=WAL"], "doc": "Run on every connection"}
+  ],
+  "ports": [],
+  "requires": [],
+  "spec_kinds": [{"kind": "queries", "files": "spec/queries/*.sql", "generator": "gen"}],
+  "spec_fragments": [],
+  "migrations": ["migrations/0001_outbox.sql", "migrations/0002_meta.sql"],
+  "templates": [],
+  "web_modules": []
+}

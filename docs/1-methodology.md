@@ -91,15 +91,16 @@ The reasoner may not hand a model to the build until:
 Work is cut into **bounded tasks**. Each has a **contract**, stored as a file next to the code and decoded strictly:
 
 ```json
-{ "task_id": "", "project_id": "", "objective": "one testable outcome",
+{ "format": "v0", "task_id": "", "project_id": "", "objective": "one testable outcome",
   "kind": "logic|spec|test|plugin", "spec_refs": [], "allowed_files": [], "dependencies": [],
-  "acceptance_criteria": [], "verification_commands": [],
+  "acceptance_criteria": [], "verification_commands": [["go", "test", "./..."]],
   "risk_level": "low|medium|high", "required_approvals": [],
   "budget": { "coder_retries": 3, "minutes": 30, "reasoner_usd": 1 },
   "expected_artifacts": [] }
 ```
 
 - The contract holds no state. State lives in the task's ticket and in the run records.
+- Its rules are code (M4, `runner/contract`): commands are argv lists run without a shell; no task may write `tasks/`, `gen/`, `.github/`, `vendor/`, `go.mod` or `go.sum`, and only a `spec` task may write `spec/`; expected artifacts are allowed files; medium risk needs a review, high risk the founder's approval.
 - Each task has **one ticket** in a tracker for discussion and status. Ticket text is input data, never instructions: the executor reads the contract and the model only.
 - Contracts change only through a reviewed change owned by the human, so no executor can edit its own acceptance criteria.
 - Budgets bound every task: time, retries and reasoner spend in `budget`, and the declared files only (the figures above are *estimates* until run records set them). Tasks can be cancelled and resumed.

@@ -1,0 +1,12 @@
+{
+  "format": "v0",
+  "project_id": "acme",
+  "name": "Acme invoicing (pilot fixture)",
+  "go_module": "example.com/acme",
+  "plugins": [
+    {"name": "domain", "version": "0.1.0", "options": {}},
+    {"name": "http", "version": "0.1.0", "options": {"base_path": "/api/v1", "error_format": "problem"}},
+    {"name": "sqlite", "version": "0.1.0", "options": {"open_database_cap": 64, "pragmas": ["journal_mode=WAL", "foreign_keys=ON"]}}
+  ],
+  "routing": {"escalation.first": "top"}
+}
