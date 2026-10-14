@@ -156,7 +156,9 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 
 ### E14–E15 · Models
 
-**Coder.** Ollama's HTTP API on the private interface. To measure in P0: tokens per second and time per task while the GPU is shared; first-pass rate per task kind. **Fallback:** if the local setup fails, the `coder` tier switches to Claude Haiku through a hosted `Coder` adapter (one line in the routing table, by pull request), at its per-token cost or the plan's limits. **Exit:** any local model behind an HTTP API, bound per task kind if useful.
+**Coder.** Ollama's HTTP API on the private interface. Still to measure in P0: first-pass rate per task kind. **Fallback:** if the local setup fails, the `coder` tier switches to Claude Haiku through a hosted `Coder` adapter (one line in the routing table, by pull request), at its per-token cost or the plan's limits. **Exit:** any local model behind an HTTP API, bound per task kind if useful.
+
+- **Spike #15 (measured 2026-10-14, on the ops host / WSL2 tower):** `qwen3-coder:30b` through Ollama's HTTP API (`/api/generate`), three representative pure-function prompts (70–220 output tokens, `eval_count`/`eval_duration` from the response). Idle GPU: steady-state ~48–50 tok/s (e.g. 1.4s for 70 tokens, 4.2s for 206). Under contention — a concurrent `qwen3-embedding:0.6b` load on the same GPU, standing in for the tower's only real contention case (the founder's own coding or gaming sessions, not a steady background load): throughput drops to ~16–18 tok/s, roughly a 3x slowdown (the 206-token case: ~4.2s idle vs ~12.3s contended). Feeds the coder adapter's budget default: size a task's time budget off ~45–50 tok/s uncontended, and allow up to 3x that when the tower is in active use for something else. Real gaming-session contention is unmeasured — an exception case, not worth blocking the spike on.
 
 **Reasoner.** Deep: we rely on Claude Code's headless mode, tool restrictions, sessions and budget caps.
 
