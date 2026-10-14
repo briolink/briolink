@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-14):** offline build container spiked — pinned-digest image, `GOTOOLCHAIN=local`, measured cold/warm times ([#39](https://github.com/briolink/briolink/pull/39), closes #4).
-- **Lead:** [#7](https://github.com/briolink/briolink/issues/7) (P0 acceptance set) and [#13](https://github.com/briolink/briolink/issues/13) (`sqlite` generator spike) are unblocked. [#5](https://github.com/briolink/briolink/issues/5) (reasoner unattended) and [#15](https://github.com/briolink/briolink/issues/15) (coder throughput) still need only your own login and the ops host.
+- **Last (2026-10-14):** P0 acceptance set built in its own repo, [briolink/acme](https://github.com/briolink/acme) (spec, 18 task contracts, one issue each); briolink links it from the P0 exit criterion ([#40](https://github.com/briolink/briolink/pull/40), closes #7).
+- **Lead:** review and merge [#40](https://github.com/briolink/briolink/pull/40). Then [#13](https://github.com/briolink/briolink/issues/13) (`sqlite` generator spike) is unblocked. [#5](https://github.com/briolink/briolink/issues/5) (reasoner unattended) and [#15](https://github.com/briolink/briolink/issues/15) (coder throughput) still need only your own login and the ops host.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
