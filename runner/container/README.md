@@ -17,14 +17,18 @@ repo's worktree (2026-10-14, repo at commit `7923024`):
 | Same, with `GOCACHE`/`GOMODCACHE` mounted from the host, first pass | ~8.5s |
 | Same, second pass (build cache hit) | ~0.5s |
 
-The repo has no external module (A6, stdlib only: no `go.sum`), so there is
-nothing to vendor today — `go mod vendor` reports "no dependencies to
-vendor". The open part of the question is what a dependency would need:
-`go mod download` cannot run inside the container (no network), so a future
-dependency has to be vendored into the repo (`go mod vendor`, committed) or
-its module cache pre-seeded on the ops host and mounted read-only into the
-container; either way the fetch happens outside the no-network container,
-once, with network, not per task.
+The repo has no external module today (A6, stdlib only: no `go.sum`), so
+there is nothing to vendor yet — `go mod vendor` reports "no dependencies to
+vendor". `go mod download` cannot run inside the container (no network), so
+a dependency's fetch always happens outside it, once, with network, not per
+task — either `go mod vendor`, committed, or a pre-seeded module cache
+mounted read-only at `-v <host-gomodcache>:/go/pkg/mod` above. A6 now picks
+between them per dependency: vendor by default; a pre-seeded cache only for
+one whose vendored tree would bloat every clone, and only in this repo and
+its platform forks — a client project repo still vendors it. `modernc.org/sqlite`
+(137 MB vendored, [#13](https://github.com/briolink/briolink/issues/13),
+[#41](https://github.com/briolink/briolink/issues/41)) takes the cache path
+here; its `go.sum` entry still pins the exact version the cache must hold.
 
 ## What breaks without network
 
