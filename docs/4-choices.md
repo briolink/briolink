@@ -129,11 +129,14 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 
 ### E10 · Pooled and dedicated servers
 
-2026 list prices, to verify before ordering: netcup VPS 1000 ARM G11 (6 vCore, 8 GB, 256 GB) €5.26; Contabo Cloud VPS 20 (6 vCPU, 12 GB, 100 GB) €7.00; OVHcloud VPS-2 (6 vCores, 12 GB) €9.99 on annual billing. Check each provider's terms allow third-party hosting.
+2026 list prices, to verify before ordering: netcup VPS 1000 ARM G11 (6 vCore, 8 GB, 256 GB) €5.26; Contabo Cloud VPS 20 (6 vCPU, 12 GB, 100 GB) €7.00; OVHcloud VPS-2 (6 vCores, 12 GB) €9.99 on annual billing.
+
+- **Terms:** none of the three bars hosting third-party (client) workloads. netcup runs official web-hosting and vServer reseller programmes, so third-party use is contractually anticipated; Contabo's help centre states resale needs no special agreement; OVH Canada's dedicated-server Specific Conditions describe the rental as pure infrastructure with no OVH control over hosted content, and restrict only reselling the allocated IP addresses on their own. *Not fully verified:* netcup's reseller appendix and OVH's general (non-dedicated-server) terms weren't read in full text, only summarised third-party sources and the dedicated-server PDF.
 
 ### E11 · The tower
 
 - **Setup:** WSL2 capped at 16 GB, 8 threads and 8 GB swap, mirrored networking and DNS tunnelling, started outside the login session; ~9 GB covers the standby at full capacity. BitLocker on the drive holding database copies; a UPS if possible. Development also runs here.
+- **ISP terms:** the residential/mobile home-internet Service Terms cap use to the subscriber's "own individual use" and bar reselling the service or taking any benefit from a third party's use of the connection; neither servers nor VPN/hub traffic are named. Running the tower as a private-network hub (E12) and short-term fallback is personal and non-resold, but it backs billed client work, which sits close to the "individual use" line. Accepted as a grey-area risk at the same level as E9's — enforcement would be suspension, not legal action, and the exit (a rented Linux host) already covers it.
 - **Sharing:** Ollama runs on Windows (the model mostly in the GPU's 16 GB, ~2 GB spilled to RAM). CPU is the contended resource: on a takeover the script pauses the workers and lowers Ollama's priority and threads. The failover drill runs while the model generates.
 - **Hub:** UDP 51820 forwarded on the router; `wg.<brand domain>` kept current by a DDNS job. If the ISP uses CGNAT, the hub moves to a €3–5 VPS.
 - **Location:** kept in the operator config, not here. The ISP's terms must allow a short-term fallback server and a hub.
