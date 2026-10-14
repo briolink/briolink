@@ -10,7 +10,7 @@
 # Requires: oci CLI (configured profile), the ops SSH key's public half.
 set -euo pipefail
 
-: "${BASTION_OCID:?Set BASTION_OCID (the target Bastion resource's OCID)}"
+: "${BASTION_OCID:?Set BASTION_OCID to the target Bastion resource OCID}"
 TARGET_IP="${TARGET_IP:-10.0.0.226}"
 TARGET_PORT="${TARGET_PORT:-22}"
 LOCAL_PORT="${LOCAL_PORT:-18822}"
@@ -22,24 +22,23 @@ command -v oci >/dev/null || { echo "oci CLI not found" >&2; exit 1; }
 [ -f "${SSH_KEY}.pub" ] || { echo "SSH public key not found at ${SSH_KEY}.pub" >&2; exit 1; }
 
 echo "==> Creating port-forwarding session ($TARGET_IP:$TARGET_PORT, profile $PROFILE)" >&2
-SESSION_ID=$(oci bastion session create-port-forwarding-session \
+SESSION_ID=$(oci bastion session create-port-forwarding \
   --profile "$PROFILE" \
   --bastion-id "$BASTION_OCID" \
   --display-name "tower-$(date +%s)" \
   --ssh-public-key-file "${SSH_KEY}.pub" \
   --target-private-ip "$TARGET_IP" --target-port "$TARGET_PORT" \
   --session-ttl "$SESSION_TTL" \
-  --query 'data.id' --raw-output)
+  --wait-for-state SUCCEEDED --max-wait-seconds 60 \
+  --query 'data.resources[0].identifier' --raw-output)
 
-echo "==> Session $SESSION_ID created, waiting for ACTIVE..." >&2
-oci bastion session get --profile "$PROFILE" --session-id "$SESSION_ID" \
-  --wait-for-state ACTIVE --max-wait-seconds 120 >/dev/null
-
+echo "==> Session $SESSION_ID active" >&2
 SSH_CMD=$(oci bastion session get --profile "$PROFILE" --session-id "$SESSION_ID" \
   --query 'data."ssh-metadata"."command"' --raw-output)
 RESOLVED=$(echo "$SSH_CMD" \
   | sed -e "s#<privateKey>#$SSH_KEY#" -e "s#<localPort>#$LOCAL_PORT#")
 
 echo "==> Tunnel: localhost:$LOCAL_PORT -> $TARGET_IP:$TARGET_PORT (session $SESSION_ID, up to ${SESSION_TTL}s)" >&2
+sleep 5 # a just-created session reports ACTIVE before publickey auth is actually live
 echo "==> Running: $RESOLVED" >&2
 exec $RESOLVED

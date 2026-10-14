@@ -21,7 +21,7 @@ Description=Briolink spike quadlet test
 [Container]
 Image=docker.io/library/alpine:3
 Exec=sleep 300
-Memory=48m
+PodmanArgs=--memory=48m
 PidsLimit=40
 ReadOnly=true
 DropCapability=all
@@ -46,13 +46,19 @@ echo "== lingering (pods start at boot without a login) =="
 loginctl show-user "$(id -un)" -p Linger
 
 echo "== per-UID nftables drop (needs sudo; reversible, its own table) =="
-echo "Target below is TEST-NET-3 (203.0.113.0/24), not a real metadata/provider range — swap for"
-echo "169.254.169.254 (cloud metadata) and the provider's internal range on the real host."
+echo "Target below (1.1.1.1:443) is a known-reachable stand-in to prove the before/after"
+echo "transition — swap for 169.254.169.254 (cloud metadata) and the provider's internal"
+echo "range on the real host, where there's no 'reachable baseline' to compare against."
+echo "-- baseline (should succeed) --"
+timeout 3 nc -zv -w2 1.1.1.1 443 2>&1 || echo "WARNING: baseline target unreachable, test is inconclusive"
 sudo nft add table inet briolink_spike
 sudo nft add chain inet briolink_spike output '{ type filter hook output priority 0 ; }'
-sudo nft add rule inet briolink_spike output meta skuid "$(id -u)" ip daddr 203.0.113.0/24 drop
-( timeout 3 nc -zv -w2 203.0.113.10 80 2>&1 || true ) | grep -qi "timed out\|refused" \
+sudo nft add rule inet briolink_spike output meta skuid "$(id -u)" ip daddr 1.1.1.1 drop
+echo "-- with rule (should block) --"
+( timeout 3 nc -zv -w2 1.1.1.1 443 2>&1 || true ) | grep -qi "timed out\|refused" \
   && echo "BLOCKED as expected" || echo "WARNING: not blocked"
 sudo nft delete table inet briolink_spike
+echo "-- after removing rule (should succeed again) --"
+timeout 3 nc -zv -w2 1.1.1.1 443 2>&1
 
 echo "All checks passed."
