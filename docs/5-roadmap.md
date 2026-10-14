@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-14):** [#15](https://github.com/briolink/briolink/issues/15) (coder throughput) measured and closed on the ops host (WSL2 tower): `qwen3-coder:30b` steady-state ~48–50 tok/s idle, ~16–18 tok/s under a concurrent synthetic GPU load (~3x slower). E14 updated (commit `2b6f1e2`). [#5](https://github.com/briolink/briolink/issues/5)'s daily probe keeps running — founder wants at least 48h of logs before touching it again.
-- **Lead:** #5 stays open until its probe clears 48h (check back after 2026-10-16); in the meantime, [#31](https://github.com/briolink/briolink/issues/31) (providers' terms for pooled/dedicated hosting and the ops host's ISP) is queued, low-risk, docs-only and needs no special access — a reasonable next pick on this same host.
+- **Last (2026-10-14):** [#31](https://github.com/briolink/briolink/issues/31) (providers' terms) researched: E10 (netcup/Contabo/OVH) and E11 (ops host ISP) rows updated in 4-choices.md — no blocking terms found, one ISP grey area accepted alongside E9's. [PR #47](https://github.com/briolink/briolink/pull/47) open, not yet merged. [#5](https://github.com/briolink/briolink/issues/5)'s daily probe keeps running — founder wants at least 48h of logs before touching it again.
+- **Lead:** merge [PR #47](https://github.com/briolink/briolink/pull/47) to close #31; #5 stays open until its probe clears 48h (check back after 2026-10-16).
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
