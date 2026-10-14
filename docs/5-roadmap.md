@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-14):** [#31](https://github.com/briolink/briolink/issues/31) (providers' terms) researched: E10 (netcup/Contabo/OVH) and E11 (ops host ISP) rows updated in 4-choices.md — no blocking terms found, one ISP grey area accepted alongside E9's. [PR #47](https://github.com/briolink/briolink/pull/47) open, not yet merged. [#5](https://github.com/briolink/briolink/issues/5)'s daily probe keeps running — founder wants at least 48h of logs before touching it again.
-- **Lead:** merge [PR #47](https://github.com/briolink/briolink/pull/47) to close #31; #5 stays open until its probe clears 48h (check back after 2026-10-16).
+- **Last (2026-10-14):** bare `/briolink` now shows a board (last, next steps with role and tier, waiting issues, plan limits) and `/briolink done` records the session's token use via `scripts/session-usage.sh`; new `state:waiting` label, applied to [#5](https://github.com/briolink/briolink/issues/5) (probe logs, until 2026-10-16). [#31](https://github.com/briolink/briolink/issues/31) closed with [PR #47](https://github.com/briolink/briolink/pull/47) merged.
+- **Lead:** try the new flow with `/clear` then `/briolink`; then take a queued item (no P0 issue is queued; the next ones are H1 spikes such as [#27](https://github.com/briolink/briolink/issues/27)); #5 is due for a look after 2026-10-16.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 

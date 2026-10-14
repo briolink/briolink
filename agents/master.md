@@ -8,9 +8,9 @@ Loaded by `/briolink` only ([AGENTS.md](../AGENTS.md)). Briolink is a methodolog
 
 | Command | Effect |
 | --- | --- |
-| `/briolink [task]` | Bind the session; master routes this and every later prompt. Without a task, master reads [Now](../docs/5-roadmap.md#now), offers its lead and waits for the founder |
+| `/briolink [task]` | Bind the session; master routes this and every later prompt. Without a task, master shows the board and waits for the founder: last done ([Now](../docs/5-roadmap.md#now)), next steps (the lead, then queued issues, each with its role and tier), waiting issues, the plan's limits |
 | `/briolink <name> [task]` | Bind, and take this task as that role: read `agents/<name>.md`, then only the sections it lists |
-| `/briolink done` | Close the piece of work: save everything, then clear the context |
+| `/briolink done` | Close the piece of work: save everything, record the session's token use and the plan's limits in the closing commit (`scripts/session-usage.sh`), then clear the context |
 | `/briolink exit` | Unbind: back to the plain model |
 | `/briolink list` | List the roles below |
 

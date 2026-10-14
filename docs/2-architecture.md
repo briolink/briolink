@@ -103,7 +103,7 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 
 From the first code on, each repo's issues are its tasks:
 - One issue per task, linking `tasks/<id>.json`; milestones follow the roadmap stages; a split task becomes sub-issues.
-- **Labels:** `kind:logic|spec|test|plugin|infra|docs|spike|decision` (`infra`: platform scaffolding, CI and tooling code), `risk:low|medium|high`, `state:queued|running|needs-reasoner|needs-founder|blocked`. Done means closed by its pull request.
+- **Labels:** `kind:logic|spec|test|plugin|infra|docs|spike|decision` (`infra`: platform scaffolding, CI and tooling code), `risk:low|medium|high`, `state:queued|running|needs-reasoner|needs-founder|blocked|waiting` (`blocked`: on other issues; `waiting`: on a date or an outside event, named in a `Waiting until <date>: <reason>` line of its body). Done means closed by its pull request.
 - The founder owns `tasks/` and `spec/` as code owner; code is approved by pull-request review on protected branches.
 - **Who acts (A22):** the runner and any unattended agent act as the bot; interactive sessions act on the founder's prompt, as the founder. A check on every pull request fails unless its author is the bot or the founder, and only the founder merges into `main`.
 - The control plane reaches issues only through the code host port and exposes tasks as `/api/v1/tasks`, so a code host swap changes one adapter. Contracts are files, so the runner keeps working from the repo mirror while the code host is down.
