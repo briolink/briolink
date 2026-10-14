@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0001",
+  "project_id": "acme",
+  "objective": "settles_balance returns true exactly when a positive amount equals the balance",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.settles_balance", "spec/domain/acme.json#Invoice.record_payment"],
+  "allowed_files": ["domain/acme/settles_balance.go"],
+  "dependencies": [],
+  "acceptance_criteria": [
+    "The generated transition tests for (issued, record_payment) pass",
+    "The boundary tests for settles_balance pass",
+    "The mutation check catches every mutant of settles_balance"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "settles_balance"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 30, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/settles_balance.go"]
+}

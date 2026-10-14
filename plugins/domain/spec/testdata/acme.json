@@ -1,0 +1,133 @@
+{
+  "format": "v0",
+  "context": "acme",
+  "doc": "Pilot fixture for the v0 format: invoicing, kept small. Its rules are examples, not a client's business rules.",
+  "glossary": [
+    {"term": "Invoice", "meaning": "A request for payment made of lines, issued once, then paid in full or voided"},
+    {"term": "Line", "meaning": "One billed item: a description, a quantity and a unit price in cents"},
+    {"term": "Currency", "meaning": "The currency every amount on an invoice is in"},
+    {"term": "Balance", "meaning": "The total of the lines minus what has been paid"}
+  ],
+  "enums": [
+    {"name": "Currency", "doc": "", "values": ["eur", "usd"]}
+  ],
+  "values": [
+    {"name": "Line", "doc": "", "fields": [
+      {"name": "description", "type": "string", "doc": ""},
+      {"name": "quantity", "type": "int", "doc": "At least 1"},
+      {"name": "unit_price", "type": "int", "doc": "Cents, never negative"}
+    ]}
+  ],
+  "entities": [
+    {
+      "name": "Invoice",
+      "doc": "",
+      "fields": [
+        {"name": "id", "type": "string", "doc": ""},
+        {"name": "customer", "type": "string", "doc": ""},
+        {"name": "currency", "type": "Currency", "doc": ""},
+        {"name": "lines", "type": "[]Line", "doc": ""},
+        {"name": "number", "type": "?string", "doc": "Set when issued"},
+        {"name": "issued_at", "type": "?time", "doc": "Set when issued"},
+        {"name": "paid", "type": "int", "doc": "Cents received so far"},
+        {"name": "void_reason", "type": "?string", "doc": "Set when voided"}
+      ],
+      "invariants": ["paid_within_total", "lines_valid"],
+      "statechart": {
+        "initial": "draft",
+        "states": [
+          {"name": "draft", "doc": "Lines can still change", "final": false},
+          {"name": "issued", "doc": "Numbered and sent; awaiting payment", "final": false},
+          {"name": "paid", "doc": "", "final": true},
+          {"name": "voided", "doc": "", "final": true}
+        ],
+        "events": [
+          {"name": "add_line", "doc": "", "params": [{"name": "line", "type": "Line", "doc": ""}]},
+          {"name": "issue", "doc": "", "params": [
+            {"name": "number", "type": "string", "doc": "Allocated by the shell"},
+            {"name": "now", "type": "time", "doc": ""}
+          ]},
+          {"name": "record_payment", "doc": "", "params": [
+            {"name": "amount", "type": "int", "doc": "Cents"},
+            {"name": "now", "type": "time", "doc": ""}
+          ]},
+          {"name": "void", "doc": "", "params": [{"name": "reason", "type": "string", "doc": ""}]}
+        ],
+        "transitions": [
+          {"from": "draft", "event": "add_line", "to": "draft", "guard": "line_acceptable", "action": "add_line"},
+          {"from": "draft", "event": "issue", "to": "issued", "guard": "has_lines", "action": "issue"},
+          {"from": "draft", "event": "void", "to": "voided", "guard": "", "action": "void"},
+          {"from": "issued", "event": "record_payment", "to": "paid", "guard": "settles_balance", "action": "apply_payment"},
+          {"from": "issued", "event": "record_payment", "to": "issued", "guard": "partial_payment", "action": "apply_payment"},
+          {"from": "issued", "event": "void", "to": "voided", "guard": "unpaid", "action": "void"}
+        ],
+        "forbidden": [
+          {"state": "draft", "events": ["record_payment"]},
+          {"state": "issued", "events": ["add_line", "issue"]}
+        ]
+      }
+    }
+  ],
+  "functions": [
+    {"name": "line_acceptable", "kind": "guard", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "line", "type": "Line", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when the quantity is at least 1, the unit price is not negative and the description is not blank"]},
+    {"name": "has_lines", "kind": "guard", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when the invoice has at least one line"]},
+    {"name": "settles_balance", "kind": "guard", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "amount", "type": "int", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when the amount is positive and equals the balance exactly"]},
+    {"name": "partial_payment", "kind": "guard", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "amount", "type": "int", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when the amount is positive and below the balance"]},
+    {"name": "unpaid", "kind": "guard", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when nothing has been paid"]},
+    {"name": "add_line", "kind": "action", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "line", "type": "Line", "doc": ""}],
+     "returns": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "rules": ["Appends the line after the existing ones"]},
+    {"name": "issue", "kind": "action", "doc": "",
+     "params": [
+       {"name": "invoice", "type": "Invoice", "doc": ""},
+       {"name": "number", "type": "string", "doc": ""},
+       {"name": "now", "type": "time", "doc": ""}
+     ],
+     "returns": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "rules": ["Sets the number and sets issued_at to now; nothing else changes"]},
+    {"name": "apply_payment", "kind": "action", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "amount", "type": "int", "doc": ""}],
+     "returns": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "rules": ["Adds the amount to paid"]},
+    {"name": "void", "kind": "action", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}, {"name": "reason", "type": "string", "doc": ""}],
+     "returns": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "rules": ["Sets void_reason to the reason"]},
+    {"name": "paid_within_total", "kind": "invariant", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["Paid is between 0 and the total of the lines"]},
+    {"name": "lines_valid", "kind": "invariant", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["Every line has a quantity of at least 1 and a unit price that is not negative"]},
+    {"name": "new_invoice", "kind": "pure", "doc": "Creates a draft",
+     "params": [
+       {"name": "id", "type": "string", "doc": ""},
+       {"name": "customer", "type": "string", "doc": ""},
+       {"name": "currency", "type": "Currency", "doc": ""}
+     ],
+     "returns": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "rules": ["Returns an invoice with no lines, nothing paid and no number"]},
+    {"name": "total", "kind": "pure", "doc": "",
+     "params": [{"name": "invoice", "type": "Invoice", "doc": ""}],
+     "returns": [{"name": "total", "type": "int", "doc": "Cents"}],
+     "rules": ["The sum over the lines of quantity times unit price"]}
+  ]
+}

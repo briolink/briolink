@@ -122,6 +122,8 @@ Generators are plugins (A5): each spec kind belongs to the plugin that serves it
 | `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `http`: handlers, validation, route table, typed structs |
 | `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result columns and types | `sqlite`: typed functions. It applies the migrations and prepares every statement with the database itself, so a wrong table, column, count or parameter fails generation, and the declared result columns are checked against the database's. A generated test repeats the check |
 
+**Format v0** is the Go types and their `Validate` methods, one package per kind (M4): `core/project` (`project.json` and `plugin.json`, the plugin manifest), `plugins/domain/spec`, `plugins/http/spec`, `plugins/sqlite/spec` and `runner/contract`. Every JSON file starts with `"format": "v0"` and is decoded by `core/strictjson`: one value, no unknown or duplicate key, exact case; an absent field is its zero value, which `Validate` rejects wherever it matters. Each package's `testdata/` holds the `acme` pilot fixture; its tests break every rule once.
+
 Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker (`quality/mutate`) is our own, built on `go/ast`.
 
 ## App core and plugins

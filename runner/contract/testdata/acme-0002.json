@@ -1,0 +1,16 @@
+{
+  "format": "v0",
+  "task_id": "acme-0002",
+  "project_id": "acme",
+  "objective": "partial_payment returns true exactly when a positive amount is below the balance",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.partial_payment"],
+  "allowed_files": ["domain/acme/partial_payment.go"],
+  "dependencies": ["acme-0001"],
+  "acceptance_criteria": ["The boundary tests for partial_payment pass"],
+  "verification_commands": [["go", "test", "./domain/acme/..."]],
+  "risk_level": "medium",
+  "required_approvals": ["founder"],
+  "budget": {"coder_retries": 3, "minutes": 30, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/partial_payment.go"]
+}
