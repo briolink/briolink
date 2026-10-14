@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0007",
+  "project_id": "acme",
+  "objective": "in_check_in_window returns true exactly from 30 minutes before to 15 minutes after starts_at, both included",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.in_check_in_window", "spec/domain/acme.json#Booking.check_in"],
+  "allowed_files": ["domain/acme/in_check_in_window.go"],
+  "dependencies": ["acme-0001"],
+  "acceptance_criteria": [
+    "The boundary tests for in_check_in_window pass",
+    "The generated transition tests for (confirmed, check_in) pass",
+    "The mutation check catches every mutant of in_check_in_window"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "in_check_in_window"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/in_check_in_window.go"]
+}

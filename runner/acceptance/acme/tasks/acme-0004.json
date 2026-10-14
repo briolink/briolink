@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0004",
+  "project_id": "acme",
+  "objective": "Tests for refund_due and overstay_charge, from their rules",
+  "kind": "test",
+  "spec_refs": ["spec/domain/acme.json#functions.refund_due", "spec/domain/acme.json#functions.overstay_charge"],
+  "allowed_files": ["domain/acme/refund_due_test.go", "domain/acme/overstay_charge_test.go"],
+  "dependencies": [],
+  "acceptance_criteria": [
+    "refund_due is tested for both tiers at the exact 24-hour and 72-hour instants and one second either side, with an even and an odd deposit",
+    "overstay_charge is tested at 10 minutes, 10 minutes and one second, 30 minutes and 30 minutes and one second after ends_at, for both tiers and two seats",
+    "The tests compile against the generated signatures"
+  ],
+  "verification_commands": [["go", "vet", "./domain/acme/..."]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 0, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/refund_due_test.go", "domain/acme/overstay_charge_test.go"]
+}

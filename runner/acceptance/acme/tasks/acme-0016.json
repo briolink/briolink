@@ -1,0 +1,21 @@
+{
+  "format": "v0",
+  "task_id": "acme-0016",
+  "project_id": "acme",
+  "objective": "cancel sets cancelled_at to now and the refund to refund_due, and changes nothing else",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.cancel", "spec/domain/acme.json#Booking.cancel", "spec/routes.json#routes.cancel_booking"],
+  "allowed_files": ["domain/acme/cancel.go"],
+  "dependencies": ["acme-0002", "acme-0006", "acme-0013"],
+  "acceptance_criteria": [
+    "The tests for cancel pass",
+    "The generated transition tests for (requested, cancel) and (confirmed, cancel) pass",
+    "The generated handler tests for cancel_booking pass",
+    "The mutation check catches every mutant of cancel"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["go", "test", "./gen/..."], ["mutate", "./domain/acme", "-func", "cancel"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/cancel.go"]
+}

@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0011",
+  "project_id": "acme",
+  "objective": "quote returns seats times started 30-minute blocks times the tier's block rate",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.quote", "spec/routes.json#routes.quote_booking"],
+  "allowed_files": ["domain/acme/quote.go"],
+  "dependencies": ["acme-0003"],
+  "acceptance_criteria": [
+    "The tests for quote pass",
+    "The generated handler tests for quote_booking pass",
+    "The mutation check catches every mutant of quote"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["go", "test", "./gen/..."], ["mutate", "./domain/acme", "-func", "quote"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/quote.go"]
+}

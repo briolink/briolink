@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0006",
+  "project_id": "acme",
+  "objective": "before_start returns true exactly when now is strictly before starts_at",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.before_start", "spec/domain/acme.json#Booking.cancel"],
+  "allowed_files": ["domain/acme/before_start.go"],
+  "dependencies": ["acme-0001"],
+  "acceptance_criteria": [
+    "The boundary tests for before_start pass",
+    "The generated transition tests for (confirmed, cancel) pass",
+    "The mutation check catches every mutant of before_start"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "before_start"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/before_start.go"]
+}

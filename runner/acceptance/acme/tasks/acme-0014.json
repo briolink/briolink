@@ -1,0 +1,19 @@
+{
+  "format": "v0",
+  "task_id": "acme-0014",
+  "project_id": "acme",
+  "objective": "overstay_charge returns 0 within the 10-minute grace, else seats times started blocks after ends_at times the block rate",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.overstay_charge"],
+  "allowed_files": ["domain/acme/overstay_charge.go"],
+  "dependencies": ["acme-0004", "acme-0011"],
+  "acceptance_criteria": [
+    "The tests for overstay_charge pass",
+    "The mutation check catches every mutant of overstay_charge"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "overstay_charge"]],
+  "risk_level": "medium",
+  "required_approvals": ["founder"],
+  "budget": {"coder_retries": 3, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/overstay_charge.go"]
+}

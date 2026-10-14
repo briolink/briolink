@@ -1,0 +1,19 @@
+{
+  "format": "v0",
+  "task_id": "acme-0009",
+  "project_id": "acme",
+  "objective": "window_valid returns true exactly when ends_at is after starts_at and the slot lasts at most 8 hours",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.window_valid"],
+  "allowed_files": ["domain/acme/window_valid.go"],
+  "dependencies": ["acme-0002"],
+  "acceptance_criteria": [
+    "The tests for window_valid pass",
+    "The mutation check catches every mutant of window_valid"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "window_valid"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/window_valid.go"]
+}

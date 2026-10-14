@@ -1,0 +1,21 @@
+{
+  "format": "v0",
+  "task_id": "acme-0017",
+  "project_id": "acme",
+  "objective": "check_in sets checked_in_at to now and changes nothing else",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.check_in", "spec/domain/acme.json#Booking.check_in", "spec/routes.json#routes.check_in"],
+  "allowed_files": ["domain/acme/check_in.go"],
+  "dependencies": ["acme-0002", "acme-0007"],
+  "acceptance_criteria": [
+    "The tests for check_in pass",
+    "The generated transition tests for (confirmed, check_in) pass",
+    "The generated handler tests for check_in pass",
+    "The mutation check catches every mutant of check_in"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["go", "test", "./gen/..."], ["mutate", "./domain/acme", "-func", "check_in"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/check_in.go"]
+}

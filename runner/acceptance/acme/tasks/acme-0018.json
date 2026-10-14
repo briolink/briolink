@@ -1,0 +1,21 @@
+{
+  "format": "v0",
+  "task_id": "acme-0018",
+  "project_id": "acme",
+  "objective": "check_out sets checked_out_at to now and the overstay fee to overstay_charge, and changes nothing else",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.check_out", "spec/domain/acme.json#Booking.check_out", "spec/routes.json#routes.check_out"],
+  "allowed_files": ["domain/acme/check_out.go"],
+  "dependencies": ["acme-0002", "acme-0014"],
+  "acceptance_criteria": [
+    "The tests for check_out pass",
+    "The generated transition tests for (checked_in, check_out) pass",
+    "The generated handler tests for check_out pass",
+    "The mutation check catches every mutant of check_out"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["go", "test", "./gen/..."], ["mutate", "./domain/acme", "-func", "check_out"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/check_out.go"]
+}

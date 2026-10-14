@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0003",
+  "project_id": "acme",
+  "objective": "Tests for quote and new_booking, from their rules",
+  "kind": "test",
+  "spec_refs": ["spec/domain/acme.json#functions.quote", "spec/domain/acme.json#functions.new_booking"],
+  "allowed_files": ["domain/acme/quote_test.go", "domain/acme/new_booking_test.go"],
+  "dependencies": [],
+  "acceptance_criteria": [
+    "quote is tested for both tiers, one and eight seats, and slots ending exactly on and just past a block",
+    "new_booking is tested for every field it sets",
+    "The tests compile against the generated signatures"
+  ],
+  "verification_commands": [["go", "vet", "./domain/acme/..."]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 0, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/quote_test.go", "domain/acme/new_booking_test.go"]
+}

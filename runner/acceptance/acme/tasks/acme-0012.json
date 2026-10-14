@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0012",
+  "project_id": "acme",
+  "objective": "new_booking returns a requested booking priced by quote with nothing paid, charged or timestamped",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.new_booking", "spec/routes.json#routes.create_booking"],
+  "allowed_files": ["domain/acme/new_booking.go"],
+  "dependencies": ["acme-0003", "acme-0011"],
+  "acceptance_criteria": [
+    "The tests for new_booking pass",
+    "The generated handler tests for create_booking pass",
+    "The mutation check catches every mutant of new_booking"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["go", "test", "./gen/..."], ["mutate", "./domain/acme", "-func", "new_booking"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/new_booking.go"]
+}

@@ -1,0 +1,161 @@
+{
+  "format": "v0",
+  "context": "acme",
+  "doc": "P0 acceptance set: desk bookings, kept small. Its rules are examples for measuring the runner, not a client's business rules.",
+  "glossary": [
+    {"term": "Booking", "meaning": "A guest's hold on some seats for one time slot, from request to check-out, cancellation or no-show"},
+    {"term": "Tier", "meaning": "The price and cancellation terms a booking was made on"},
+    {"term": "Block", "meaning": "A started 30 minutes; prices and overstay are counted in blocks"},
+    {"term": "Deposit", "meaning": "What the guest pays to confirm, in cents"},
+    {"term": "Refund", "meaning": "The part of the deposit returned when a confirmed booking is cancelled"},
+    {"term": "Check-in window", "meaning": "From 30 minutes before the start to 15 minutes after it"},
+    {"term": "Overstay", "meaning": "Time between the booked end and the check-out, charged after a 10-minute grace"}
+  ],
+  "enums": [
+    {"name": "Tier", "doc": "", "values": ["standard", "flexible"]}
+  ],
+  "values": [],
+  "entities": [
+    {
+      "name": "Booking",
+      "doc": "",
+      "fields": [
+        {"name": "id", "type": "string", "doc": "Allocated by the shell"},
+        {"name": "guest", "type": "string", "doc": ""},
+        {"name": "tier", "type": "Tier", "doc": ""},
+        {"name": "seats", "type": "int", "doc": "1 to 8"},
+        {"name": "starts_at", "type": "time", "doc": ""},
+        {"name": "ends_at", "type": "time", "doc": ""},
+        {"name": "price", "type": "int", "doc": "Cents, from quote when requested"},
+        {"name": "deposit", "type": "int", "doc": "Cents paid at confirmation; 0 before"},
+        {"name": "refund", "type": "int", "doc": "Cents returned at cancellation; 0 otherwise"},
+        {"name": "overstay_fee", "type": "int", "doc": "Cents charged at check-out; 0 otherwise"},
+        {"name": "checked_in_at", "type": "?time", "doc": "Set at check-in"},
+        {"name": "checked_out_at", "type": "?time", "doc": "Set at check-out"},
+        {"name": "cancelled_at", "type": "?time", "doc": "Set at cancellation"}
+      ],
+      "invariants": ["window_valid", "money_within_bounds"],
+      "statechart": {
+        "initial": "requested",
+        "states": [
+          {"name": "requested", "doc": "Asked for; nothing paid", "final": false},
+          {"name": "confirmed", "doc": "Deposit paid; the seats are held", "final": false},
+          {"name": "checked_in", "doc": "The guest arrived", "final": false},
+          {"name": "completed", "doc": "", "final": true},
+          {"name": "cancelled", "doc": "", "final": true},
+          {"name": "no_show", "doc": "", "final": true}
+        ],
+        "events": [
+          {"name": "confirm", "doc": "", "params": [
+            {"name": "deposit", "type": "int", "doc": "Cents"},
+            {"name": "now", "type": "time", "doc": ""}
+          ]},
+          {"name": "cancel", "doc": "", "params": [{"name": "now", "type": "time", "doc": ""}]},
+          {"name": "check_in", "doc": "", "params": [{"name": "now", "type": "time", "doc": ""}]},
+          {"name": "mark_no_show", "doc": "", "params": [{"name": "now", "type": "time", "doc": ""}]},
+          {"name": "check_out", "doc": "", "params": [{"name": "now", "type": "time", "doc": ""}]}
+        ],
+        "transitions": [
+          {"from": "requested", "event": "confirm", "to": "confirmed", "guard": "deposit_covers", "action": "confirm"},
+          {"from": "requested", "event": "cancel", "to": "cancelled", "guard": "", "action": "cancel"},
+          {"from": "confirmed", "event": "cancel", "to": "cancelled", "guard": "before_start", "action": "cancel"},
+          {"from": "confirmed", "event": "check_in", "to": "checked_in", "guard": "in_check_in_window", "action": "check_in"},
+          {"from": "confirmed", "event": "mark_no_show", "to": "no_show", "guard": "check_in_closed", "action": ""},
+          {"from": "checked_in", "event": "check_out", "to": "completed", "guard": "", "action": "check_out"}
+        ],
+        "forbidden": [
+          {"state": "requested", "events": ["check_in", "mark_no_show", "check_out"]},
+          {"state": "confirmed", "events": ["confirm", "check_out"]},
+          {"state": "checked_in", "events": ["confirm", "cancel", "check_in", "mark_no_show"]}
+        ]
+      }
+    }
+  ],
+  "functions": [
+    {"name": "deposit_covers", "kind": "guard", "doc": "",
+     "params": [
+       {"name": "booking", "type": "Booking", "doc": ""},
+       {"name": "deposit", "type": "int", "doc": ""},
+       {"name": "now", "type": "time", "doc": ""}
+     ],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": [
+       "True when the deposit is at least the minimum deposit and at most the price, and now is strictly before starts_at",
+       "The minimum deposit is 20% of the price, rounded up to the next cent"
+     ]},
+    {"name": "before_start", "kind": "guard", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when now is strictly before starts_at"]},
+    {"name": "in_check_in_window", "kind": "guard", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when now is no earlier than 30 minutes before starts_at and no later than 15 minutes after it; both ends are included"]},
+    {"name": "check_in_closed", "kind": "guard", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when now is more than 15 minutes after starts_at"]},
+    {"name": "confirm", "kind": "action", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "deposit", "type": "int", "doc": ""}],
+     "returns": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "rules": ["Sets deposit; nothing else changes"]},
+    {"name": "cancel", "kind": "action", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "rules": ["Sets cancelled_at to now and refund to refund_due of the booking at now; nothing else changes"]},
+    {"name": "check_in", "kind": "action", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "rules": ["Sets checked_in_at to now; nothing else changes"]},
+    {"name": "check_out", "kind": "action", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "rules": ["Sets checked_out_at to now and overstay_fee to overstay_charge of the booking at now; nothing else changes"]},
+    {"name": "window_valid", "kind": "invariant", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when ends_at is strictly after starts_at and the booking lasts at most 8 hours"]},
+    {"name": "money_within_bounds", "kind": "invariant", "doc": "",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True when the deposit is between 0 and the price, the refund is between 0 and the deposit, and the overstay fee is not negative; every bound is included"]},
+    {"name": "quote", "kind": "pure", "doc": "The price of a slot",
+     "params": [
+       {"name": "tier", "type": "Tier", "doc": ""},
+       {"name": "seats", "type": "int", "doc": ""},
+       {"name": "starts_at", "type": "time", "doc": ""},
+       {"name": "ends_at", "type": "time", "doc": ""}
+     ],
+     "returns": [{"name": "price", "type": "int", "doc": "Cents"}],
+     "rules": [
+       "The block rate per seat is 600 cents on the standard tier and 750 on the flexible tier",
+       "The price is the seats times the blocks from starts_at to ends_at times the block rate; a block is a started 30 minutes"
+     ]},
+    {"name": "new_booking", "kind": "pure", "doc": "Creates a requested booking",
+     "params": [
+       {"name": "id", "type": "string", "doc": ""},
+       {"name": "guest", "type": "string", "doc": ""},
+       {"name": "tier", "type": "Tier", "doc": ""},
+       {"name": "seats", "type": "int", "doc": ""},
+       {"name": "starts_at", "type": "time", "doc": ""},
+       {"name": "ends_at", "type": "time", "doc": ""}
+     ],
+     "returns": [{"name": "booking", "type": "Booking", "doc": ""}],
+     "rules": ["Returns a booking with the given values and its price from quote; deposit, refund and overstay fee are 0 and no timestamp is set"]},
+    {"name": "refund_due", "kind": "pure", "doc": "What a cancellation at now returns",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "refund", "type": "int", "doc": "Cents"}],
+     "rules": [
+       "0 when the deposit is 0",
+       "Flexible tier: the whole deposit when now is at least 24 hours before starts_at, otherwise half the deposit rounded down",
+       "Standard tier: the whole deposit when now is at least 72 hours before starts_at, half the deposit rounded down when at least 24 hours before, otherwise 0"
+     ]},
+    {"name": "overstay_charge", "kind": "pure", "doc": "What a check-out at now costs on top of the price",
+     "params": [{"name": "booking", "type": "Booking", "doc": ""}, {"name": "now", "type": "time", "doc": ""}],
+     "returns": [{"name": "fee", "type": "int", "doc": "Cents"}],
+     "rules": [
+       "0 when now is no later than 10 minutes after ends_at",
+       "Otherwise the seats times the blocks from ends_at to now times the tier's block rate, as in quote; the grace minutes count toward the first block"
+     ]}
+  ]
+}

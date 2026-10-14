@@ -1,0 +1,48 @@
+{
+  "format": "v0",
+  "roles": ["guest", "staff"],
+  "routes": [
+    {"name": "quote_booking", "method": "POST", "path": "/quotes", "role": "guest",
+     "context": "acme", "call": "quote", "status": 200,
+     "request": [
+       {"name": "tier", "in": "body", "type": "Tier", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "seats", "in": "body", "type": "int", "min": 1, "max": 8, "pattern": "", "doc": ""},
+       {"name": "starts_at", "in": "body", "type": "time", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "ends_at", "in": "body", "type": "time", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "price", "type": "int", "doc": "Cents"}]},
+    {"name": "create_booking", "method": "POST", "path": "/bookings", "role": "guest",
+     "context": "acme", "call": "new_booking", "status": 201,
+     "request": [
+       {"name": "guest", "in": "body", "type": "string", "min": 1, "max": 200, "pattern": "", "doc": ""},
+       {"name": "tier", "in": "body", "type": "Tier", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "seats", "in": "body", "type": "int", "min": 1, "max": 8, "pattern": "", "doc": ""},
+       {"name": "starts_at", "in": "body", "type": "time", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "ends_at", "in": "body", "type": "time", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "booking", "type": "Booking", "doc": ""}]},
+    {"name": "confirm_booking", "method": "POST", "path": "/bookings/{id}/confirm", "role": "guest",
+     "context": "acme", "call": "Booking.confirm", "status": 200,
+     "request": [
+       {"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""},
+       {"name": "deposit", "in": "body", "type": "int", "min": 1, "max": null, "pattern": "", "doc": "Cents"}
+     ],
+     "response": [{"name": "booking", "type": "Booking", "doc": ""}]},
+    {"name": "cancel_booking", "method": "POST", "path": "/bookings/{id}/cancel", "role": "guest",
+     "context": "acme", "call": "Booking.cancel", "status": 200,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""}],
+     "response": [{"name": "booking", "type": "Booking", "doc": ""}]},
+    {"name": "check_in", "method": "POST", "path": "/bookings/{id}/check-in", "role": "staff",
+     "context": "acme", "call": "Booking.check_in", "status": 200,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""}],
+     "response": [{"name": "booking", "type": "Booking", "doc": ""}]},
+    {"name": "check_out", "method": "POST", "path": "/bookings/{id}/check-out", "role": "staff",
+     "context": "acme", "call": "Booking.check_out", "status": 200,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""}],
+     "response": [{"name": "booking", "type": "Booking", "doc": ""}]},
+    {"name": "mark_no_show", "method": "POST", "path": "/bookings/{id}/no-show", "role": "staff",
+     "context": "acme", "call": "Booking.mark_no_show", "status": 204,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""}],
+     "response": []}
+  ]
+}

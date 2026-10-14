@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0008",
+  "project_id": "acme",
+  "objective": "check_in_closed returns true exactly when now is more than 15 minutes after starts_at",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.check_in_closed", "spec/domain/acme.json#Booking.mark_no_show"],
+  "allowed_files": ["domain/acme/check_in_closed.go"],
+  "dependencies": ["acme-0001"],
+  "acceptance_criteria": [
+    "The boundary tests for check_in_closed pass",
+    "The generated transition tests for (confirmed, mark_no_show) pass",
+    "The mutation check catches every mutant of check_in_closed"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "check_in_closed"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/check_in_closed.go"]
+}

@@ -1,0 +1,11 @@
+{
+  "format": "v0",
+  "project_id": "acme",
+  "name": "Acme desk bookings (P0 acceptance set)",
+  "go_module": "example.com/acme",
+  "plugins": [
+    {"name": "domain", "version": "0.1.0", "options": {}},
+    {"name": "http", "version": "0.1.0", "options": {"base_path": "/api/v1", "error_format": "problem"}}
+  ],
+  "routing": {}
+}

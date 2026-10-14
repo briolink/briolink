@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0002",
+  "project_id": "acme",
+  "objective": "Tests for the four actions and the two invariants, from their rules",
+  "kind": "test",
+  "spec_refs": ["spec/domain/acme.json#functions.confirm", "spec/domain/acme.json#functions.cancel", "spec/domain/acme.json#functions.check_in", "spec/domain/acme.json#functions.check_out", "spec/domain/acme.json#functions.window_valid", "spec/domain/acme.json#functions.money_within_bounds"],
+  "allowed_files": ["domain/acme/confirm_test.go", "domain/acme/cancel_test.go", "domain/acme/check_in_test.go", "domain/acme/check_out_test.go", "domain/acme/window_valid_test.go", "domain/acme/money_within_bounds_test.go"],
+  "dependencies": [],
+  "acceptance_criteria": [
+    "Each action has a test that every field its rules do not name is unchanged",
+    "Each invariant has a test on both sides of every bound its rule names",
+    "The tests compile against the generated signatures"
+  ],
+  "verification_commands": [["go", "vet", "./domain/acme/..."]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 0, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/confirm_test.go", "domain/acme/cancel_test.go", "domain/acme/check_in_test.go", "domain/acme/check_out_test.go", "domain/acme/window_valid_test.go", "domain/acme/money_within_bounds_test.go"]
+}

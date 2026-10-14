@@ -1,0 +1,20 @@
+{
+  "format": "v0",
+  "task_id": "acme-0005",
+  "project_id": "acme",
+  "objective": "deposit_covers returns true exactly when the deposit is between the rounded-up 20% minimum and the price, before the start",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.deposit_covers", "spec/domain/acme.json#Booking.confirm"],
+  "allowed_files": ["domain/acme/deposit_covers.go"],
+  "dependencies": ["acme-0001"],
+  "acceptance_criteria": [
+    "The boundary tests for deposit_covers pass",
+    "The generated transition tests for (requested, confirm) pass",
+    "The mutation check catches every mutant of deposit_covers"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "deposit_covers"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 30, "reasoner_usd": 2},
+  "expected_artifacts": ["domain/acme/deposit_covers.go"]
+}

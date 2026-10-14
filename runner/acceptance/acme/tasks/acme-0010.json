@@ -1,0 +1,19 @@
+{
+  "format": "v0",
+  "task_id": "acme-0010",
+  "project_id": "acme",
+  "objective": "money_within_bounds returns true exactly when deposit, refund and overstay fee are within their bounds",
+  "kind": "logic",
+  "spec_refs": ["spec/domain/acme.json#functions.money_within_bounds"],
+  "allowed_files": ["domain/acme/money_within_bounds.go"],
+  "dependencies": ["acme-0002"],
+  "acceptance_criteria": [
+    "The tests for money_within_bounds pass",
+    "The mutation check catches every mutant of money_within_bounds"
+  ],
+  "verification_commands": [["go", "test", "./domain/acme/..."], ["mutate", "./domain/acme", "-func", "money_within_bounds"]],
+  "risk_level": "low",
+  "required_approvals": [],
+  "budget": {"coder_retries": 3, "minutes": 15, "reasoner_usd": 1},
+  "expected_artifacts": ["domain/acme/money_within_bounds.go"]
+}
