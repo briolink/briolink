@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-14):** [#21](https://github.com/briolink/briolink/issues/21) closed: R2 conditional writes are a clean compare-and-swap, measured from the tower and the A1 instance. O11 is resolved as A23: the ops host's 30 s promise keeps the primary up through a lease store outage ([3-hosting § Failover](3-hosting.md#failover-a13), [ops/RUNBOOK.md](../ops/RUNBOOK.md)). The spike token and bucket are deleted.
-- **Lead:** take [#26](https://github.com/briolink/briolink/issues/26) (Spike: ops host network: public IPv4, WSL2 hub, spoke recovery) next. A23's promise now relies on that private network too.
+- **Last (2026-10-15):** [#26](https://github.com/briolink/briolink/issues/26) closed: the tower has a public IPv4 (no CGNAT), but its WSL2 hub must run userspace `wireguard-go` because mirrored mode drops the kernel module's inbound UDP; it survives a kill and a full reboot, and a spoke recovers from a hub address change in about 4 minutes worst case (A21 corrected, E11/E12 updated, [ops/RUNBOOK.md](../ops/RUNBOOK.md)). Open parts are in [#49](https://github.com/briolink/briolink/issues/49).
+- **Lead:** take [#25](https://github.com/briolink/briolink/issues/25) (`ops.<brand domain>` with a DNS-01 certificate) next: it needs `briolink.ca` on Cloudflare, which also unblocks the DDNS job #49 waits on.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 

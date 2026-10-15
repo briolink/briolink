@@ -1,0 +1,22 @@
+# The private network's hub (A21, E12): userspace WireGuard on the tower.
+# Why not the kernel module: WSL2 mirrored networking only hands an inbound UDP
+# packet to Linux when a Linux process has bound the port; the kernel module's
+# in-kernel socket is invisible to Windows, so its handshakes never arrive
+# (ops/RUNBOOK.md, #26). Installed by ops/wg-hub-install.sh.
+[Unit]
+Description=Briolink WireGuard hub (wireguard-go, wg0)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
+ExecStart=/usr/bin/wireguard-go -f wg0
+ExecStartPost=/bin/bash -c 'wg setconf wg0 <(wg-quick strip wg0)'
+ExecStartPost=/usr/sbin/ip address add 10.88.0.1/24 dev wg0
+ExecStartPost=/usr/sbin/ip link set mtu 1420 up dev wg0
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

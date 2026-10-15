@@ -235,7 +235,7 @@ Hub and spoke, hub on the ops host. Servers dial out (`PersistentKeepalive = 25`
 | Servers | 10.88.0.10–49 | None |
 | Founder devices | 10.88.0.100–119 | None |
 
-Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers → ops host replica endpoint and metrics; everything else dropped. Spokes re-resolve the hub every 2 minutes. Keys are generated on each host and rotated yearly; a lost device is removed by deleting its peer. SSH listens on the private interface only, keys only, no root. Public sites and failover don't depend on the network; if the hub is down, use the providers' consoles.
+Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers → ops host replica endpoint and metrics; everything else dropped. Spokes re-resolve the hub from a timer every 2 minutes, acting only when the last handshake is over 135 s old, so a spoke is back within about 4 minutes of a hub address change (measured in [#26](https://github.com/briolink/briolink/issues/26)). The hub runs userspace WireGuard (E12). Keys are generated on each host and rotated yearly; a lost device is removed by deleting its peer. SSH listens on the private interface only, keys only, no root. Public sites and failover don't depend on the network; if the hub is down, use the providers' consoles.
 
 ### Control plane
 

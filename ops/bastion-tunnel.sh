@@ -41,4 +41,5 @@ RESOLVED=$(echo "$SSH_CMD" \
 echo "==> Tunnel: localhost:$LOCAL_PORT -> $TARGET_IP:$TARGET_PORT (session $SESSION_ID, up to ${SESSION_TTL}s)" >&2
 sleep 5 # a just-created session reports ACTIVE before publickey auth is actually live
 echo "==> Running: $RESOLVED" >&2
-exec $RESOLVED
+# Keepalives: an idle forward goes stale within minutes otherwise (banner exchange timeouts).
+exec ${RESOLVED/ssh /ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=3 }
