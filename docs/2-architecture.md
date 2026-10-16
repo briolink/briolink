@@ -221,7 +221,7 @@ port/                  one interface per role, with contract tests
 adapter/<role>/<name>/ provider implementations
 runner/                the loop: coder, checks, retries, escalation
 generate/              the generator host (generators live in their plugins)
-quality/mutate/        mutation checker
+quality/mutate/        mutation checker (cmd/mutate is its command)
 core/                  the client-app core
 plugins/<name>/        the plugin catalog
 web/                   control center UI
