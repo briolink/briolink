@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** [#25](https://github.com/briolink/briolink/issues/25) closed: `ops.briolink.ca` as a DNS-only record to the hub's private address, with a Let's Encrypt DNS-01 certificate from a zone-scoped Cloudflare token, serves HTTPS to a spoke over WireGuard with nothing public ([ops/RUNBOOK.md](../ops/RUNBOOK.md), 3-hosting § Control plane). Port 443 and a real renewal are untested; the spike token still needs revoking in the dashboard.
-- **Lead:** take [#49](https://github.com/briolink/briolink/issues/49) (private network follow-up) next: `briolink.ca` is now on Cloudflare, so its DDNS job and the real address-change test can start.
+- **Last (2026-10-16):** [#5](https://github.com/briolink/briolink/issues/5) not closable yet: the Oct 15 and 16 probe runs failed because the systemd timer had no PATH to `claude`; the probe is fixed and one manual run logged in unattended. #25's spike token is revoked.
+- **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs; meanwhile take [#49](https://github.com/briolink/briolink/issues/49) (private network follow-up), now that `briolink.ca` is on Cloudflare.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
