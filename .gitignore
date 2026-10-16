@@ -3,3 +3,6 @@
 
 # Build output
 /control
+
+# Local secrets (spike tokens); never committed
+.env

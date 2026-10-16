@@ -239,7 +239,7 @@ Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers �
 
 ### Control plane
 
-- Runs on the ops host, bound to the hub's private address; `ops.<brand domain>` is a DNS-only record to it, with a DNS-01 certificate from a DNS token limited to the brand zone (A20). Nothing listens publicly.
+- Runs on the ops host, bound to the hub's private address; `ops.<brand domain>` is a DNS-only record to it, with a DNS-01 certificate from a DNS token limited to the brand zone (A20). Nothing listens publicly. Setup (measured in [#25](https://github.com/briolink/briolink/issues/25)): a grey-cloud A record `ops` → the hub address; a Cloudflare token with Zone DNS Edit and Zone Read on the brand zone only; `lego run --dns cloudflare -d ops.<brand domain>` with `CLOUDFLARE_DNS_API_TOKEN` set, renewed by a timer. Issuing takes about 20 s, and spokes validate it over the private network with no resolver override.
 - Login: password (argon2id) + TOTP, even on the private network; 12 h sessions; passkeys are O10.
 - Secrets: each sealed with AES-256-GCM under a master key from a root-only systemd credential (also in the founder's password manager); rotated or deleted, never displayed.
 - Audit log: append-only, copied daily to Briolink's ops bucket.
