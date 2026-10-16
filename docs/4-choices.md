@@ -81,7 +81,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | E17 | External pinger | healthchecks.io (free) | Thin | A dead-man's switch outside our infrastructure |
 | E18 | Provisioning | OpenTofu, exact provider pins, state encrypted in the client's offsite bucket | Thin | Open licence; client-side state encryption |
 | E19 | Crawler tools | Playwright, Lighthouse, axe-core, inside assessment containers | Thin | The reference tools for each measure |
-| E20 | Brand | Briolink, `briolink.ca`; trials on a separate neutral domain (O4) | — | — |
+| E20 | Brand | Briolink, `briolink.ca`; trials on `trybriolink.ca` (O4), a separate domain with brand recall, its zone in Briolink's own Cloudflare account | — | The cheapest mainstream TLD (about $9 a year); a flagged trial can't touch `briolink.ca` (A15); tenant names stay one label deep, so the free certificate covers `*.trybriolink.ca`. Public Suffix List entry deferred until trials are many |
 | E21 | Mail sender | Amazon SES over SMTP, in Briolink's AWS account with one SES tenant per client; the client's own account at the dedicated tier | Thin | Cheapest per mail ($0.10 per 1,000, no minimum), so one binding fits every volume; tenants isolate each client's reputation, so one account serves all |
 
 ## Bindings in detail

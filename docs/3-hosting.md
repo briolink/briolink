@@ -216,7 +216,7 @@ Two servers can never write at once, and failover depends neither on the private
 
 ## Trials (A15)
 
-Free, time-limited sites on the preview domain, created from a form in seconds; a trial can be the "your site, rebuilt" step of an assessment. On payment it becomes the client's preview environment with no code change.
+Free, time-limited sites on the preview domain `trybriolink.ca` (E20), created from a form in seconds; a trial can be the "your site, rebuilt" step of an assessment. On payment it becomes the client's preview environment with no code change.
 
 - **One system:** a multi-tenant Go app (tenant from the hostname), self-hosted S3 storage and a tunnel agent, in its own pod (~0.4 GB, low CPU priority). One wildcard record → one tunnel; names `<tenant>.`, `<tenant>-api.`, `<tenant>-admin.`. Nothing per trial at the edge provider.
 - **Isolation:** a SQLite file per tenant opened only after the tenant is resolved, `ATTACH` disabled, only recent tenants kept open; one bucket and key per tenant, secrets derived as `HMAC(master_secret, tenant_id)`; sessions in the tenant's database with host-only cookies; per-tenant temp directories and cache keys through one helper; per-job storage keys in the bake worker; the tenant ID on every log line; access by signed invite link plus staff login. The residual risk, a hostname-resolution bug, exposes only public pages. Trials hold test data only.
