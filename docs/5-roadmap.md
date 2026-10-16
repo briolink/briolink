@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** [#50](https://github.com/briolink/briolink/issues/50) open checks closed — exit window and SES retention fixed at 30 days, Cloudflare Administrator Read Only confirmed on the Free plan (A24); the build waits for the control plane.
-- **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
+- **Last (2026-10-16):** P0 plan fixed — 12 issues cut ([#52](https://github.com/briolink/briolink/issues/52)–[#63](https://github.com/briolink/briolink/issues/63)) with dependencies on [#9](https://github.com/briolink/briolink/issues/9), [#12](https://github.com/briolink/briolink/issues/12), [#14](https://github.com/briolink/briolink/issues/14), [#16](https://github.com/briolink/briolink/issues/16), [#17](https://github.com/briolink/briolink/issues/17); mutation checker built ([#6](https://github.com/briolink/briolink/issues/6), PR [#64](https://github.com/briolink/briolink/pull/64), awaiting merge).
+- **Lead:** start the generator host, [#52](https://github.com/briolink/briolink/issues/52), the head of the P0 critical path; on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
