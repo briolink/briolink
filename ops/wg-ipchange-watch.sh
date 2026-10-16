@@ -2,7 +2,10 @@
 # Logs the private network's recovery from a hub address change (#49 step 3):
 # one tab-separated line every INTERVAL seconds (default 2), flushed so a cut
 # connection loses nothing. Run as root, on the spoke and on the hub, in
-# parallel, before the change. Add PUBIP=1 on the hub to log its public IPv4.
+# parallel, before the change, as a transient unit (a backgrounded sudo stops on
+# its password prompt, and sudo -E is refused on this host):
+#   sudo systemd-run --unit=ipwatch --property=StandardOutput=append:$HOME/ipchange.log ops/wg-ipchange-watch.sh 2
+# On the hub add --setenv=PUBIP=1 to log its public IPv4. Stop: sudo systemctl stop ipwatch.
 #   utc  handshake-age-per-peer(s, "-" if none)  endpoint-per-peer  name->ip  [public ip]
 # Recovery = the first line whose handshake age drops back below ~10 s after
 # the outage; the time from the new address appearing to that line is the bound.
