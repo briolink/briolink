@@ -5,7 +5,7 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** [#34](https://github.com/briolink/briolink/issues/34) closed — trials run on `trybriolink.ca`, a separate brand-recall domain whose zone is in Briolink's Cloudflare account (E20, 3-hosting Trials).
+- **Last (2026-10-16):** [#35](https://github.com/briolink/briolink/issues/35) closed — no passkeys, TOTP stays the control center's only login (A25, O10).
 - **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs; meanwhile take [#49](https://github.com/briolink/briolink/issues/49) (private network follow-up), now that `briolink.ca` is on Cloudflare.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
