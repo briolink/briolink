@@ -81,7 +81,7 @@ Every fixed decision and why, in one place, current state only. IDs are stable: 
 | E18 | Provisioning | OpenTofu, exact provider pins, state encrypted in the client's offsite bucket | Thin | Open licence; client-side state encryption |
 | E19 | Crawler tools | Playwright, Lighthouse, axe-core, inside assessment containers | Thin | The reference tools for each measure |
 | E20 | Brand | Briolink, `briolink.ca`; trials on a separate neutral domain (O4) | — | — |
-| E21 | Mail sender | Not chosen (O2) | Thin | — |
+| E21 | Mail sender | Amazon SES over SMTP, in the client's AWS account; Briolink's own mail from its own account | Thin | Cheapest per mail ($0.10 per 1,000, no minimum), so one binding fits every volume |
 
 ## Bindings in detail
 
@@ -195,3 +195,15 @@ Both adapters record per call: model, prompt and spec version, tokens, cost, dur
 - **Notifier:** fallback, e-mail. **Pinger:** fallback, the ops host's own checks and the daily digest's silence.
 - **OpenTofu:** fallback, the runbooks (every step is also written by hand).
 - **Crawler tools:** run pinned inside the assessment image; nothing else depends on them.
+
+### E21 · Amazon SES
+
+Decided 2026-10-16 ([#33](https://github.com/briolink/briolink/issues/33)). Prices from the AWS pricing page that day.
+
+- **Contract:** SMTP with STARTTLS (port 587), SES SMTP credentials from a send-only IAM user; SPF, DKIM and DMARC on the client's own domain. The `mail` plugin sends over SMTP only, so any relay can replace it by config.
+- **Cost:** à la carte, $0.10 per 1,000 mails plus $0.12 per GB of attachments, no minimum. **Briolink absorbs the cost of a small free allowance per client**; above it the client pays for its own use. The allowance's size is set with the hosting prices.
+- **Account:** the client's AWS account, opened under the client's identity e-mail, on the **paid plan** at sign-up (the free plan closes the account after 6 months; the new-customer credits apply either way). The region is the one closest to the client's users (`ca-central-1` for Canadian clients). Leaving the SES sandbox is a one-time request per account, part of onboarding.
+- **Provisioned:** the domain identity with Easy DKIM, a custom MAIL FROM subdomain, the account-level suppression list (bounces and complaints), the send-only IAM user; the DKIM, SPF and DMARC records go into the client's Cloudflare zone (E5).
+- **Limits:** AWS reviews an account whose bounce rate passes 5% or complaint rate 0.1%, and can pause its sending; the suppression list and transactional-only use keep both low.
+- **Rejected:** sending low volumes from the client's Gmail account. It can't sign for the client's domain (DMARC fails), needs a second adapter (app password or OAuth), caps at about 500 recipients a day with a lockout, and puts at risk the account that owns the client's other provider logins, to save cents.
+- **Fallback:** the plugin's outbox keeps unsent mail and retries. **Exit:** any SMTP relay with domain DKIM: Scaleway Transactional Email (300 free a month, then €0.25 per 1,000, no subscription) or Cloudflare Email Service once out of beta ($5/month Workers Paid, 3,000 included, then $0.35 per 1,000).
