@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** [#49](https://github.com/briolink/briolink/issues/49) closed — hub DDNS job and A21 forwarding table built and measured with a second spoke (Docker `FORWARD` gotcha fixed); a real address change was not observed and waits in [#51](https://github.com/briolink/briolink/issues/51) (M15 amended).
-- **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs; meanwhile take [#50](https://github.com/briolink/briolink/issues/50) (client exit procedure, A24).
+- **Last (2026-10-16):** [#50](https://github.com/briolink/briolink/issues/50) open checks closed — exit window and SES retention fixed at 30 days, Cloudflare Administrator Read Only confirmed on the Free plan (A24); the build waits for the control plane.
+- **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
