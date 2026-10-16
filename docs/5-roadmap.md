@@ -5,7 +5,7 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** [#5](https://github.com/briolink/briolink/issues/5) not closable yet: the Oct 15 and 16 probe runs failed because the systemd timer had no PATH to `claude`; the probe is fixed and one manual run logged in unattended. #25's spike token is revoked.
+- **Last (2026-10-16):** [#27](https://github.com/briolink/briolink/issues/27) closed — all six edge questions measured on the real `briolink.ca` account; E5/E6 updated and M15 (CLI-first provider access) added to [4-choices.md](4-choices.md); teardown confirmed complete, logged in [ops/RUNBOOK.md](../ops/RUNBOOK.md).
 - **Lead:** on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs; meanwhile take [#49](https://github.com/briolink/briolink/issues/49) (private network follow-up), now that `briolink.ca` is on Cloudflare.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.

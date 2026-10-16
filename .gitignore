@@ -6,3 +6,6 @@
 
 # Local secrets (spike tokens); never committed
 .env
+
+# Personal Claude Code permission overrides; never committed
+.claude/settings.local.json
