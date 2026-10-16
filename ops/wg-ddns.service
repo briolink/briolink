@@ -1,0 +1,11 @@
+# Updates wg.briolink.ca to the tower's public IPv4 (A21, #49). Run by
+# wg-ddns.timer; installed by ops/wg-ddns-install.sh.
+[Unit]
+Description=Briolink hub DDNS update (wg.briolink.ca)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DDNS_ENV_FILE=@ENV_FILE@
+ExecStart=/usr/local/sbin/wg-ddns.sh

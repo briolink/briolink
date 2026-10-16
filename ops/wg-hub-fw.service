@@ -1,0 +1,22 @@
+# Loads the hub's wg0 firewall (ops/wg-hub.nft, A21, #49). Installed by
+# ops/wg-hub-fw-install.sh.
+# Docker sets iptables' FORWARD policy to DROP, which silently discards
+# wg0 -> wg0 traffic after the nft table has accepted it, so the unit also lets
+# wg0 -> wg0 through DOCKER-USER; A21's filtering stays in the nft table.
+# PartOf: a Docker restart restarts this unit and puts the rule back.
+[Unit]
+Description=Briolink hub firewall for wg0
+After=wg-hub.service docker.service
+Wants=wg-hub.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/briolink/wg-hub.nft
+ExecStartPost=-/bin/bash -c 'iptables -n -L DOCKER-USER >/dev/null 2>&1 && { iptables -C DOCKER-USER -i wg0 -o wg0 -j ACCEPT 2>/dev/null || iptables -I DOCKER-USER 1 -i wg0 -o wg0 -j ACCEPT; }'
+ExecStop=/usr/sbin/nft delete table inet briolink_hub
+ExecStopPost=-/usr/sbin/iptables -D DOCKER-USER -i wg0 -o wg0 -j ACCEPT
+
+[Install]
+WantedBy=multi-user.target
