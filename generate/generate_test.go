@@ -12,6 +12,7 @@ import (
 
 	"github.com/briolink/briolink/core/project"
 	"github.com/briolink/briolink/generate"
+	domaingen "github.com/briolink/briolink/plugins/domain/gen"
 	sqlitegen "github.com/briolink/briolink/plugins/sqlite/gen"
 )
 
@@ -156,10 +157,10 @@ func TestDiffAndCheck(t *testing.T) {
 	}
 }
 
-// TestAcme_SQLiteThroughTheHost: the sqlite generator, behind the host's
-// interface, produces the committed generate/testdata/acme/gen exactly.
+// TestAcme_ThroughTheHost: the domain and sqlite generators, behind the
+// host's interface, produce the committed generate/testdata/acme/gen exactly.
 // Run with -update to rewrite that directory after a deliberate change.
-func TestAcme_SQLiteThroughTheHost(t *testing.T) {
+func TestAcme_ThroughTheHost(t *testing.T) {
 	root := filepath.Join("testdata", "acme")
 	p, err := project.LoadProject(filepath.Join(root, "spec", "project.json"))
 	if err != nil {
@@ -169,7 +170,10 @@ func TestAcme_SQLiteThroughTheHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := generate.Registry{generate.Key("sqlite", "queries"): sqlitegen.Host{}}
+	reg := generate.Registry{
+		generate.Key("domain", "domain"):  domaingen.Host{},
+		generate.Key("sqlite", "queries"): sqlitegen.Host{},
+	}
 	ctx := context.Background()
 	if *update {
 		out, err := generate.Run(ctx, root, p, ms, reg)
