@@ -59,7 +59,7 @@ Release: preview → founder approval → production (pulled deploys)
 
 On a failover takeover the workers pause and the coder's priority drops. A command-line entry point exists only for CI and debugging, and it calls the API too.
 
-**Control center** (the UI, P3): login, projects, the specifications area (founder ↔ reasoner), the work queue and live runner views (prompt, diff, check output, retries, escalations, cost), approvals for actions outside a repo (evidence and data deletions), assessments, quality gates, infrastructure checks.
+**Control center** (the UI, P3): login, projects, the specifications area (founder ↔ reasoner), the work queue and live runner views (prompt, diff, check output, retries, escalations, cost), approvals for actions outside a repo (evidence and data deletions), assessments, quality gates, infrastructure checks, and a credentials section: every credential with its expiry and a rotation reminder (the daily credential-expiry check of [3-hosting.md](3-hosting.md#checks) feeds it).
 
 ## Runner
 

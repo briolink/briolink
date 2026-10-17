@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** ports v0 built ([#55](https://github.com/briolink/briolink/issues/55), PR [#66](https://github.com/briolink/briolink/pull/66), open for review); PR [#65](https://github.com/briolink/briolink/pull/65) (generator host, [#52](https://github.com/briolink/briolink/issues/52)) merged.
-- **Lead:** review and merge PR [#66](https://github.com/briolink/briolink/pull/66), then take [#62](https://github.com/briolink/briolink/issues/62) (repo mirror and nightly export); on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
+- **Last (2026-10-17):** spike [#5](https://github.com/briolink/briolink/issues/5) measured on the tower: Oct 17 timer run good, JSON cost and session ID, `--resume` and `--max-budget-usd` (a loop breaker, not a budget) work; results in the [issue comment](https://github.com/briolink/briolink/issues/5#issuecomment-6240558657); PR [#67](https://github.com/briolink/briolink/pull/67) still unmerged, [#62](https://github.com/briolink/briolink/issues/62) open.
+- **Lead:** merge PR [#67](https://github.com/briolink/briolink/pull/67) and close [#62](https://github.com/briolink/briolink/issues/62); on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5) with the provider-terms question; then take the `domain` and `http` generator plugins ([#53](https://github.com/briolink/briolink/issues/53), [#54](https://github.com/briolink/briolink/issues/54)).
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
