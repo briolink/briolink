@@ -7,6 +7,6 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-LoadCredential=mirror-token:/etc/briolink/mirror-token
+Environment=MIRROR_ENV_FILE=@ENV_FILE@
 Environment=MIRROR_DATA=/var/lib/briolink-mirror
 ExecStart=/usr/local/sbin/briolink-mirror-export.sh export

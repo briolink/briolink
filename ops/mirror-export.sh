@@ -4,17 +4,17 @@
 # of the org; `export` writes issues (labels, milestones, comments included) as
 # JSON under export/<date>/<repo>/ and fails unless each issue count matches the
 # code host's. Run by briolink-mirror.timer and briolink-export.timer as root.
-# The token is read-only, comes from a systemd credential, and is never put on
-# a command line or in a git config.
+# Per M15 it parses MIRROR_GH_TOKEN (read-only) from the repo-root .env (path
+# in MIRROR_ENV_FILE) and never sources it; the token is never put on a command
+# line or in a git config.
 set -euo pipefail
 
 ORG=${MIRROR_ORG:-briolink}
 DATA=${MIRROR_DATA:-/var/lib/briolink-mirror}
 KEEP_DAYS=${EXPORT_KEEP_DAYS:-14}
-TOKEN_FILE=${MIRROR_TOKEN_FILE:-${CREDENTIALS_DIRECTORY:-/etc/briolink}/mirror-token}
 API=https://api.github.com
-TOKEN=$(tr -d '[:space:]' < "$TOKEN_FILE")
-[ -n "$TOKEN" ] || { echo "empty token in $TOKEN_FILE" >&2; exit 1; }
+TOKEN=$(grep -m1 '^MIRROR_GH_TOKEN=' "$MIRROR_ENV_FILE" | cut -d= -f2- | tr -d "\"'[:space:]")
+[ -n "$TOKEN" ] || { echo "MIRROR_GH_TOKEN missing from $MIRROR_ENV_FILE" >&2; exit 1; }
 
 # GET a path (or a full URL) with pagination; prints one JSON array of all items.
 api() {
