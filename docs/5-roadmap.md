@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** ports v0 built ([#55](https://github.com/briolink/briolink/issues/55), PR [#66](https://github.com/briolink/briolink/pull/66), open for review); PR [#65](https://github.com/briolink/briolink/pull/65) (generator host, [#52](https://github.com/briolink/briolink/issues/52)) merged.
-- **Lead:** review and merge PR [#66](https://github.com/briolink/briolink/pull/66), then take [#62](https://github.com/briolink/briolink/issues/62) (repo mirror and nightly export); on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
+- **Last (2026-10-17):** `domain` generator plugin built ([#53](https://github.com/briolink/briolink/issues/53), PR [#68](https://github.com/briolink/briolink/pull/68), open for review): derived tests pass on a reference and fail on the stubs, run for real; spike [#5](https://github.com/briolink/briolink/issues/5) measured (second probe run pending); PR [#67](https://github.com/briolink/briolink/pull/67) ([#62](https://github.com/briolink/briolink/issues/62)) still unmerged.
+- **Lead:** review and merge PRs [#67](https://github.com/briolink/briolink/pull/67) and [#68](https://github.com/briolink/briolink/pull/68) (both rewrite this section; keep the newer text) and close [#62](https://github.com/briolink/briolink/issues/62); on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5) with the provider-terms question; then take the `http` generator plugin ([#54](https://github.com/briolink/briolink/issues/54)).
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
