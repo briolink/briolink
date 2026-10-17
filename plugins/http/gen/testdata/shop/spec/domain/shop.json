@@ -1,0 +1,58 @@
+{
+  "format": "v0",
+  "context": "shop",
+  "doc": "Fixture for the http plugin: types and calls that cover every kind of request value.",
+  "glossary": [
+    {"term": "Item", "meaning": "Something for sale"},
+    {"term": "Tag", "meaning": "A weighted label on an item"},
+    {"term": "Size", "meaning": "How big an item is"}
+  ],
+  "enums": [
+    {"name": "Size", "doc": "", "values": ["small", "large"]}
+  ],
+  "values": [
+    {"name": "Tag", "doc": "", "fields": [
+      {"name": "name", "type": "string", "doc": ""},
+      {"name": "weight", "type": "int", "doc": ""},
+      {"name": "sizes", "type": "?[]Size", "doc": ""}
+    ]}
+  ],
+  "entities": [
+    {"name": "Item", "doc": "", "invariants": [], "statechart": null,
+     "fields": [
+       {"name": "id", "type": "int", "doc": ""},
+       {"name": "name", "type": "string", "doc": ""},
+       {"name": "size", "type": "Size", "doc": ""},
+       {"name": "tags", "type": "[]Tag", "doc": ""},
+       {"name": "note", "type": "?string", "doc": ""},
+       {"name": "added", "type": "?time", "doc": ""},
+       {"name": "history", "type": "?[]Tag", "doc": ""}
+     ]}
+  ],
+  "functions": [
+    {"name": "list_items", "kind": "pure", "doc": "",
+     "params": [{"name": "limit", "type": "int", "doc": ""}],
+     "returns": [{"name": "items", "type": "[]Item", "doc": ""}],
+     "rules": ["Returns the first limit items"]},
+    {"name": "get_item", "kind": "pure", "doc": "",
+     "params": [{"name": "id", "type": "int", "doc": ""}],
+     "returns": [{"name": "item", "type": "Item", "doc": ""}],
+     "rules": ["Returns the item"]},
+    {"name": "create_item", "kind": "pure", "doc": "",
+     "params": [{"name": "name", "type": "string", "doc": ""}],
+     "returns": [{"name": "item", "type": "Item", "doc": ""}],
+     "rules": ["Returns a new item"]},
+    {"name": "replace_item", "kind": "pure", "doc": "",
+     "params": [{"name": "id", "type": "int", "doc": ""}],
+     "returns": [{"name": "item", "type": "Item", "doc": ""}],
+     "rules": ["Returns the replaced item"]},
+    {"name": "delete_item", "kind": "pure", "doc": "",
+     "params": [{"name": "id", "type": "int", "doc": ""}],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True"]},
+    {"name": "ping", "kind": "pure", "doc": "",
+     "params": [],
+     "returns": [{"name": "ok", "type": "bool", "doc": ""}],
+     "rules": ["True"]}
+  ]
+}
