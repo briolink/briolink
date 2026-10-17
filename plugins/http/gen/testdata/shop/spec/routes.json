@@ -1,0 +1,52 @@
+{
+  "format": "v0",
+  "roles": ["staff", "guest"],
+  "routes": [
+    {"name": "list_items", "method": "GET", "path": "/items", "role": "guest", "context": "shop", "call": "list_items", "status": 200,
+     "request": [
+       {"name": "limit", "in": "query", "type": "?int", "min": 1, "max": 100, "pattern": "", "doc": "Page size"},
+       {"name": "query", "in": "query", "type": "?string", "min": 2, "max": 10, "pattern": "^[a-z]+$", "doc": ""},
+       {"name": "active", "in": "query", "type": "?bool", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "sizes", "in": "query", "type": "[]string", "min": 1, "max": 2, "pattern": "", "doc": ""},
+       {"name": "labels", "in": "query", "type": "?[]string", "min": null, "max": 3, "pattern": "", "doc": ""},
+       {"name": "ids", "in": "query", "type": "?[]int", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [
+       {"name": "items", "type": "[]Item", "doc": ""},
+       {"name": "total", "type": "int", "doc": ""},
+       {"name": "next", "type": "?string", "doc": ""}
+     ]},
+    {"name": "get_item", "method": "GET", "path": "/items/{item_id}", "role": "guest", "context": "shop", "call": "get_item", "status": 200,
+     "request": [{"name": "item_id", "in": "path", "type": "int", "min": 1, "max": 999999, "pattern": "", "doc": ""}],
+     "response": [{"name": "item", "type": "Item", "doc": ""}]},
+    {"name": "create_item", "method": "POST", "path": "/items", "role": "staff", "context": "shop", "call": "create_item", "status": 201,
+     "request": [
+       {"name": "name", "in": "body", "type": "string", "min": 1, "max": 50, "pattern": "", "doc": ""},
+       {"name": "size", "in": "body", "type": "Size", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "tags", "in": "body", "type": "?[]Tag", "min": null, "max": 5, "pattern": "", "doc": ""},
+       {"name": "note", "in": "body", "type": "?string", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "added", "in": "body", "type": "?time", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "ratings", "in": "body", "type": "?[]int", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "flags", "in": "query", "type": "?bool", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "item", "type": "Item", "doc": ""}]},
+    {"name": "replace_item", "method": "PUT", "path": "/items/{item_id}", "role": "staff", "context": "shop", "call": "replace_item", "status": 200,
+     "request": [
+       {"name": "item_id", "in": "path", "type": "int", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "item", "in": "body", "type": "Item", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "item", "type": "Item", "doc": ""}]},
+    {"name": "touch_item", "method": "PATCH", "path": "/items/{item_id}/touch", "role": "staff", "context": "shop", "call": "ping", "status": 200,
+     "request": [
+       {"name": "item_id", "in": "path", "type": "int", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "note", "in": "body", "type": "?string", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "ok", "type": "bool", "doc": ""}]},
+    {"name": "delete_item", "method": "DELETE", "path": "/items/{item_id}", "role": "staff", "context": "shop", "call": "delete_item", "status": 204,
+     "request": [{"name": "item_id", "in": "path", "type": "int", "min": null, "max": null, "pattern": "", "doc": ""}],
+     "response": []},
+    {"name": "ping", "method": "GET", "path": "/", "role": "guest", "context": "shop", "call": "ping", "status": 200,
+     "request": [],
+     "response": [{"name": "ok", "type": "bool", "doc": ""}]}
+  ]
+}

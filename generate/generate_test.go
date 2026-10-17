@@ -13,6 +13,7 @@ import (
 	"github.com/briolink/briolink/core/project"
 	"github.com/briolink/briolink/generate"
 	domaingen "github.com/briolink/briolink/plugins/domain/gen"
+	httpgen "github.com/briolink/briolink/plugins/http/gen"
 	sqlitegen "github.com/briolink/briolink/plugins/sqlite/gen"
 )
 
@@ -157,7 +158,7 @@ func TestDiffAndCheck(t *testing.T) {
 	}
 }
 
-// TestAcme_ThroughTheHost: the domain and sqlite generators, behind the
+// TestAcme_ThroughTheHost: the domain, http and sqlite generators, behind the
 // host's interface, produce the committed generate/testdata/acme/gen exactly.
 // Run with -update to rewrite that directory after a deliberate change.
 func TestAcme_ThroughTheHost(t *testing.T) {
@@ -172,6 +173,7 @@ func TestAcme_ThroughTheHost(t *testing.T) {
 	}
 	reg := generate.Registry{
 		generate.Key("domain", "domain"):  domaingen.Host{},
+		generate.Key("http", "routes"):    httpgen.Host{},
 		generate.Key("sqlite", "queries"): sqlitegen.Host{},
 	}
 	ctx := context.Background()

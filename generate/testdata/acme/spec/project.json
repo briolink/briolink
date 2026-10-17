@@ -10,6 +10,11 @@
       "options": {}
     },
     {
+      "name": "http",
+      "version": "0.1.0",
+      "options": {}
+    },
+    {
       "name": "sqlite",
       "version": "0.1.0",
       "options": {}

@@ -1,0 +1,17 @@
+{
+  "format": "v0",
+  "name": "http",
+  "version": "0.1.0",
+  "purpose": "Routing on net/http patterns, JSON and errors: the spec/routes.json generator",
+  "options": [
+    {"name": "base_path", "type": "string", "default": "/", "doc": "Prefix of every route"},
+    {"name": "error_format", "type": "string", "default": "problem", "doc": "Error body shape"}
+  ],
+  "ports": [],
+  "requires": [{"plugin": "domain", "min_version": "0.1.0"}],
+  "spec_kinds": [{"kind": "routes", "files": "spec/routes.json", "generator": "gen"}],
+  "spec_fragments": [],
+  "migrations": [],
+  "templates": [],
+  "web_modules": []
+}

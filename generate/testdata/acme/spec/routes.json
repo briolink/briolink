@@ -1,0 +1,42 @@
+{
+  "format": "v0",
+  "roles": ["member"],
+  "routes": [
+    {"name": "create_invoice", "method": "POST", "path": "/invoices", "role": "member",
+     "context": "acme", "call": "new_invoice", "status": 201,
+     "request": [
+       {"name": "customer", "in": "body", "type": "string", "min": 1, "max": 200, "pattern": "", "doc": ""},
+       {"name": "currency", "in": "body", "type": "Currency", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "invoice", "type": "Invoice", "doc": ""}]},
+    {"name": "add_line", "method": "POST", "path": "/invoices/{id}/lines", "role": "member",
+     "context": "acme", "call": "Invoice.add_line", "status": 200,
+     "request": [
+       {"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "^[a-z0-9-]{1,40}$", "doc": ""},
+       {"name": "line", "in": "body", "type": "Line", "min": null, "max": null, "pattern": "", "doc": ""}
+     ],
+     "response": [{"name": "invoice", "type": "Invoice", "doc": ""}]},
+    {"name": "issue_invoice", "method": "POST", "path": "/invoices/{id}/issue", "role": "member",
+     "context": "acme", "call": "Invoice.issue", "status": 200,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "", "doc": ""}],
+     "response": [{"name": "invoice", "type": "Invoice", "doc": ""}]},
+    {"name": "record_payment", "method": "POST", "path": "/invoices/{id}/payments", "role": "member",
+     "context": "acme", "call": "Invoice.record_payment", "status": 200,
+     "request": [
+       {"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "amount", "in": "body", "type": "int", "min": 1, "max": null, "pattern": "", "doc": "Cents"}
+     ],
+     "response": [{"name": "invoice", "type": "Invoice", "doc": ""}]},
+    {"name": "void_invoice", "method": "POST", "path": "/invoices/{id}/void", "role": "member",
+     "context": "acme", "call": "Invoice.void", "status": 204,
+     "request": [
+       {"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "", "doc": ""},
+       {"name": "reason", "in": "body", "type": "string", "min": 1, "max": 500, "pattern": "", "doc": ""}
+     ],
+     "response": []},
+    {"name": "invoice_total", "method": "GET", "path": "/invoices/{id}/total", "role": "member",
+     "context": "acme", "call": "total", "status": 200,
+     "request": [{"name": "id", "in": "path", "type": "string", "min": null, "max": null, "pattern": "", "doc": ""}],
+     "response": [{"name": "total", "type": "int", "doc": "Cents"}]}
+  ]
+}

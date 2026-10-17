@@ -1,0 +1,11 @@
+{
+  "format": "v0",
+  "project_id": "shop",
+  "name": "Shop (http plugin fixture)",
+  "go_module": "example.com/shop",
+  "plugins": [
+    {"name": "domain", "version": "0.1.0", "options": {}},
+    {"name": "http", "version": "0.1.0", "options": {"base_path": "/api"}}
+  ],
+  "routing": {}
+}
