@@ -282,6 +282,49 @@ Until the first client launches, everything is created by hand and logged in the
 
 **Runbook** (`ops/RUNBOOK.md` per client): setup log; deploy and rollback; restore (from the ops host, the offsite backup, to a point in time); move servers; failover drill and takeover; launch (domain switch, re-bake, DNS); hand-over (accounts, final export, deletion within 30 days).
 
+### Client exit (A24)
+
+*Choices: A24, A11, M13.* The client triggers it; the control plane carries it out after 30 days. Design for [#50](https://github.com/briolink/briolink/issues/50); nothing is built yet (the back office and the control plane's event handling come with P1 and P3).
+
+**Statechart** (one per client, kept in the control plane's database):
+
+| State | Event | Guard | Next | Action |
+| --- | --- | --- | --- | --- |
+| `none` | `exit.requested` | owner only, TOTP re-entered, typed confirmation | `pending` | Record `deadline = now + 30 days`; notify the client and Briolink |
+| `pending` | `exit.cancelled` | client owner, TOTP | `none` | Notify both sides |
+| `pending` | `exit.blocked` | manual with a stated reason, or automatic while a bill is overdue | `blocked` | Show the reason in the client's back office; notify the client |
+| `blocked` | `exit.unblocked` | the block's cause is gone (manual lift, or the bill paid) | `pending` | Notify both sides |
+| `pending` | `deadline.reached` | none | `executing` | Run the steps below |
+| `blocked` | `deadline.reached` | none | `blocked` | Deliver the final export only; hold the account transfer |
+| `executing` | `step.failed` | none | `executing` | Retry with backoff; alert the founder after 3 failures; steps are idempotent |
+| `executing` | `steps.done` | all steps recorded done | `done` | Notify both sides; start the 30-day SES retention |
+
+The window does not pause during a block: a block lifted after the deadline moves `pending` straight to `executing` (a decision to confirm, see below).
+
+**Execution steps**, in this order, each recorded in the audit log and re-runnable:
+
+1. **Final export:** the database dump, the image masters, the repo mirror and the runbook, written to a bucket the client can read, with a link sent to the owner. Always delivered, even while blocked (the client is the controller).
+2. **GitHub:** the client's user becomes owner of the client's org.
+3. **Cloudflare:** the client's user becomes Super Administrator of the client's account.
+4. **B2:** a new full-access application key is issued and handed to the client with the export. The B2 login itself moves by hand ([runbook](../ops/RUNBOOK.md)).
+5. **SES:** the tenant is kept for 30 days, then deleted.
+
+**Keys.** One credential per provider, able to change membership only, held like the other secrets (sealed, never displayed) and unable to remove Briolink's own membership; the table above lists what each key cannot do, and these join it. The control plane never holds a production write key (A11): the exit credentials change who owns an account, never the account's content.
+
+| Provider | Credential | Needs to do | Open |
+| --- | --- | --- | --- |
+| GitHub | Fine-grained token or app on the client's org | Promote one member to owner | Does a scope exist that promotes but cannot remove a member? |
+| Cloudflare | API token on the client's account | Change one member's role to Super Administrator | Same question; does a token permission cover membership at all? |
+| Backblaze B2 | Master application key, or a key that can create keys | Issue one full-access key | B2 keys are scoped to buckets and capabilities; can a key create keys without being able to delete data? |
+
+If a provider has no such narrow credential, the fallback is a human step: the control plane raises an approval in the control center when the deadline is reached, and the founder runs that one step by hand from the runbook. The step stays inside the one-time approval of A24, but nothing automatic holds a broader key. This is checked per provider by the spike in [#71](https://github.com/briolink/briolink/issues/71) before any code.
+
+**Back office.** The app has one owner-only screen, "Leave Briolink": the owner re-enters TOTP and types the client's name. The app emits `exit.requested` and nothing else; it holds no ownership key and cannot cancel a block. The client's back office shows the state, the deadline, any block reason and a cancel button.
+
+**Tests.** Statechart tests derive from the table (every row, every guard, `blocked` past the deadline, a block lifted late). The end-to-end test runs on a throwaway client with all three providers on test accounts, 30 days shortened to minutes by a setting that only a test build accepts, and is the evidence #50 closes with.
+
+**To confirm with the founder:** (1) whether a block lifted after the deadline executes at once (as drawn) or starts a fresh window; (2) whether the final export goes to the client's own bucket or to a link on Briolink's ops bucket that expires after 30 days.
+
 ## Data protection
 
 Not legal advice: check each client's local law before any real personal data is collected; previews and trials with test data come first.
