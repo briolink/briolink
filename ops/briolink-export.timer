@@ -1,0 +1,10 @@
+[Unit]
+Description=Briolink nightly issue export
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

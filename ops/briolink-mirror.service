@@ -1,0 +1,12 @@
+# Mirrors every repo of the org (code host fallback, #62). Run by
+# briolink-mirror.timer; installed by ops/mirror-export-install.sh.
+[Unit]
+Description=Briolink repo mirror
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+LoadCredential=mirror-token:/etc/briolink/mirror-token
+Environment=MIRROR_DATA=/var/lib/briolink-mirror
+ExecStart=/usr/local/sbin/briolink-mirror-export.sh mirror
