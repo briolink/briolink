@@ -5,7 +5,7 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** mirror and nightly issue export built and installed on the tower ([#62](https://github.com/briolink/briolink/issues/62), PR [#67](https://github.com/briolink/briolink/pull/67) open); credentials register added to the runbook; ports v0 ([#55](https://github.com/briolink/briolink/issues/55), PR #66) merged.
+- **Last (2026-10-16):** mirror and nightly issue export built and installed on the tower ([#62](https://github.com/briolink/briolink/issues/62), PR [#67](https://github.com/briolink/briolink/pull/67) open); credentials register added to the runbook, expiry/reminder requirement added to [#58](https://github.com/briolink/briolink/issues/58); ports v0 ([#55](https://github.com/briolink/briolink/issues/55), PR #66) merged.
 - **Lead:** after 2026-10-17, confirm the 03:00 export ran, merge PR [#67](https://github.com/briolink/briolink/pull/67) and close [#62](https://github.com/briolink/briolink/issues/62); also on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
