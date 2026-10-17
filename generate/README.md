@@ -23,8 +23,10 @@ that kind, and `cmd/*` registers them.
   generated.
 - `Write`: replaces `gen/` with the generated files.
 
-`testdata/acme` is the pilot fixture: `plugins/sqlite/gen.Host` generates
-its `gen/` through the host, and the test fails on any difference. After a
+`testdata/acme` is the pilot fixture: `plugins/domain/gen.Host` and
+`plugins/sqlite/gen.Host` generate its `gen/` through the host, and the test
+fails on any difference. The fixture is also its own Go module, so the
+domain output is built and run ([plugins/domain](../plugins/domain/README.md)). After a
 deliberate generator change, `go test ./generate -update` rewrites it.
 
 See [docs/2-architecture.md § Specs and generators](../docs/2-architecture.md#specs-and-generators).
