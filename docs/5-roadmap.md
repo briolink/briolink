@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-17):** `domain` generator plugin merged ([#53](https://github.com/briolink/briolink/issues/53), PR [#68](https://github.com/briolink/briolink/pull/68), conflict with main resolved); [#62](https://github.com/briolink/briolink/issues/62) closed after PR [#67](https://github.com/briolink/briolink/pull/67); spike [#5](https://github.com/briolink/briolink/issues/5) measured (Oct 17 probe good, [results](https://github.com/briolink/briolink/issues/5#issuecomment-6240558657)), second probe run pending.
-- **Lead:** on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5) with the provider-terms question; meanwhile take the `http` generator plugin ([#54](https://github.com/briolink/briolink/issues/54)).
+- **Last (2026-10-17):** `http` generator plugin built ([#54](https://github.com/briolink/briolink/issues/54)), PR [#69](https://github.com/briolink/briolink/pull/69) awaiting review; handlers call a `Service` seam, and its generated glue (load → pure function → save + outbox) became P1 issue [#70](https://github.com/briolink/briolink/issues/70).
+- **Lead:** review and merge PR [#69](https://github.com/briolink/briolink/pull/69) (then set [#70](https://github.com/briolink/briolink/issues/70) from `state:blocked` to `state:queued`); on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5).
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
