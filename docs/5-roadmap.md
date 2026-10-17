@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-16):** spike [#29](https://github.com/briolink/briolink/issues/29) closed without a measurement (no documented PAYG exemption from idle reclaim, `cpu-keeper` stays; noted in 4-choices § E9 and the runbook, committed to `main`).
-- **Lead:** after 2026-10-17, confirm the 03:00 export ran, merge PR [#67](https://github.com/briolink/briolink/pull/67) and close [#62](https://github.com/briolink/briolink/issues/62); then take the `domain` and `http` generator plugins ([#53](https://github.com/briolink/briolink/issues/53), [#54](https://github.com/briolink/briolink/issues/54)), which unblock the control plane; on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
+- **Last (2026-10-17):** first real 03:00 export confirmed on the tower (briolink 52 issues, acme 18, exit 0); PR [#67](https://github.com/briolink/briolink/pull/67) checked and ready but not merged, [#62](https://github.com/briolink/briolink/issues/62) still open.
+- **Lead:** merge PR [#67](https://github.com/briolink/briolink/pull/67) (CI green, export evidence above) and close [#62](https://github.com/briolink/briolink/issues/62); then take the `domain` and `http` generator plugins ([#53](https://github.com/briolink/briolink/issues/53), [#54](https://github.com/briolink/briolink/issues/54)), which unblock the control plane; on or after 2026-10-18, finalize [#5](https://github.com/briolink/briolink/issues/5) from the two new probe runs.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
