@@ -1,0 +1,14 @@
+{
+  "format": "v0",
+  "name": "domain",
+  "version": "0.1.0",
+  "purpose": "Bounded contexts and statecharts: the spec/domain generator",
+  "options": [],
+  "ports": [],
+  "requires": [],
+  "spec_kinds": [{"kind": "domain", "files": "spec/domain/*.json", "generator": "gen"}],
+  "spec_fragments": [],
+  "migrations": [],
+  "templates": [],
+  "web_modules": []
+}
