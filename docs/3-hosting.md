@@ -299,11 +299,11 @@ Until the first client launches, everything is created by hand and logged in the
 | `executing` | `step.failed` | none | `executing` | Retry with backoff; alert the founder after 3 failures; steps are idempotent |
 | `executing` | `steps.done` | all steps recorded done | `done` | Notify both sides; start the 30-day SES retention |
 
-The window does not pause during a block: a block lifted after the deadline moves `pending` straight to `executing` (a decision to confirm, see below).
+The window does not pause during a block: a block lifted after the deadline moves `pending` straight to `executing` (founder-confirmed 2026-10-17).
 
 **Execution steps**, in this order, each recorded in the audit log and re-runnable:
 
-1. **Final export:** the database dump, the image masters, the repo mirror and the runbook, written to a bucket the client can read, with a link sent to the owner. Always delivered, even while blocked (the client is the controller).
+1. **Final export:** the database dump, the image masters, the repo mirror and the runbook, written to an `exit-export` bucket in the client's own R2 (every client has an active Cloudflare account with R2), with the owner notified. It is written with a token limited to that bucket's object writes, created for the exit and revoked once the export is verified (a checksum list is written last). Always delivered, even while blocked (the client is the controller).
 2. **GitHub:** the client's user becomes owner of the client's org.
 3. **Cloudflare:** the client's user becomes Super Administrator of the client's account.
 4. **B2:** a new full-access application key is issued and handed to the client with the export. The B2 login itself moves by hand ([runbook](../ops/RUNBOOK.md)).
@@ -323,7 +323,7 @@ If a provider has no such narrow credential, the fallback is a human step: the c
 
 **Tests.** Statechart tests derive from the table (every row, every guard, `blocked` past the deadline, a block lifted late). The end-to-end test runs on a throwaway client with all three providers on test accounts, 30 days shortened to minutes by a setting that only a test build accepts, and is the evidence #50 closes with.
 
-**To confirm with the founder:** (1) whether a block lifted after the deadline executes at once (as drawn) or starts a fresh window; (2) whether the final export goes to the client's own bucket or to a link on Briolink's ops bucket that expires after 30 days.
+**Decided (founder, 2026-10-17):** a block lifted late executes at once; the final export goes to the client's own R2 bucket.
 
 ## Data protection
 
