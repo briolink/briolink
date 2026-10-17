@@ -1,0 +1,10 @@
+{
+  "format": "v0",
+  "project_id": "acme",
+  "name": "Acme invoicing (pilot fixture)",
+  "go_module": "example.com/acme",
+  "plugins": [
+    {"name": "sqlite", "version": "0.1.0", "options": {}}
+  ],
+  "routing": {}
+}
