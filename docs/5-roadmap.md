@@ -4,9 +4,9 @@
 
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
-- **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-17):** #70 queued (PR [#69](https://github.com/briolink/briolink/pull/69) merged); client exit designed in [3-hosting.md](3-hosting.md#client-exit-a24) for [#50](https://github.com/briolink/briolink/issues/50) (late-lifted block executes at once, export to the client's R2), blocked on new spike [#71](https://github.com/briolink/briolink/issues/71).
-- **Lead:** on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5); then take [#71](https://github.com/briolink/briolink/issues/71) (needs a throwaway GitHub org, Cloudflare account and B2 bucket from you) to unblock #50.
+- **Stage:** P0 under way (pull requests from here); design docs still go straight to `main`.
+- **Last (2026-10-17):** control plane skeleton built (PR [#74](https://github.com/briolink/briolink/pull/74) merged, closes [#57](https://github.com/briolink/briolink/issues/57)); generator gaps filed as [#72](https://github.com/briolink/briolink/issues/72) and [#73](https://github.com/briolink/briolink/issues/73); [#70](https://github.com/briolink/briolink/issues/70) designed (A26); [#12](https://github.com/briolink/briolink/issues/12), [#17](https://github.com/briolink/briolink/issues/17) and [#58](https://github.com/briolink/briolink/issues/58) relabelled queued.
+- **Lead:** take [#58](https://github.com/briolink/briolink/issues/58) (secret store and API tokens; replaces the interim bearer token), and on or after 2026-10-18 read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5).
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
