@@ -1,0 +1,24 @@
+{
+  "format": "v0",
+  "project_id": "briolink",
+  "name": "Briolink control plane",
+  "go_module": "github.com/briolink/briolink",
+  "plugins": [
+    {
+      "name": "domain",
+      "version": "0.1.0",
+      "options": {}
+    },
+    {
+      "name": "http",
+      "version": "0.1.0",
+      "options": {"base_path": "/api/v1"}
+    },
+    {
+      "name": "sqlite",
+      "version": "0.1.0",
+      "options": {}
+    }
+  ],
+  "routing": {}
+}

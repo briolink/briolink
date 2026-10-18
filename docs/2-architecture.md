@@ -86,12 +86,13 @@ On a failover takeover the workers pause and the coder's priority drops. A comma
 | Session roles: architect, escalation hand-off / builder, operator, assessor, master | `top` / `routine` |
 
 ```json
-{ "tiers": { "coder": "<model>", "routine": "<model>", "top": "<model>" },
+{ "format": "v0",
+  "tiers": { "coder": "<model>", "routine": "<model>", "top": "<model>" },
   "jobs": { "escalation.first": "routine", "escalation.second": "top" },
-  "propose_promotion_below": 0.6, "on_top_limit": "queue-design-jobs" }
+  "propose_promotion_below_bp": 6000, "on_top_limit": "queue-design-jobs" }
 ```
 
-- The threshold and the tier per row are *estimates* until the tier spike ([issue #16](https://github.com/briolink/briolink/issues/16)) measures them.
+- The threshold is in basis points (A17). It and the tier per row are *estimates* until the tier spike ([issue #16](https://github.com/briolink/briolink/issues/16)) measures them.
 - **Precedence:** a project may override a job's tier in its `spec/project.json`; otherwise the platform table applies. Models per tier are in [4-choices.md](4-choices.md) (E14, E15). Every model is swappable: a tier names a model, and any model with an adapter for its port (`Coder` or `Reasoner`) can fill it, local or hosted.
 - **Human side:** the founder edits the file by pull request; before P3 that is the only way, after it the control center opens the same pull request. Sessions start on the `routine` tier's model (the tool's config, generated from this file once it exists); master halts a prompt whose role needs another tier until the founder switches with the tool's own command ([master.md](../agents/master.md#session-and-roles-m10)).
 - **Machine side:** the control plane serves the table at `/api/v1/routing` (read-only). When a job kind's solve rate at its tier falls below `propose_promotion_below` (or stays high a tier up), it opens a pull request changing that row, with the run records as evidence. It never applies one.
@@ -260,8 +261,12 @@ agents/                master.md (rules, roles, routing) and one brief per role
 docs/                  1-methodology … 5-roadmap
 go.mod                 module github.com/briolink/briolink (E1)
 cmd/control/           composition root: control plane + control center
+cmd/generate/          the generators' composition root: regenerate gen/, or check it is current
 cmd/assess/            composition root: assessment worker
-spec/                  the control plane's own spec, and routing.json (Routing)
+control/               the control plane: operator config, routing table, store, events, service, server
+spec/                  the control plane's own spec (project, domain, routes, queries), and routing.json (Routing)
+gen/                   generated from spec/; never edited (M1)
+migrations/            the control plane's SQL migrations
 tasks/                 task contracts
 port/                  one interface per role, with contract tests
 adapter/<role>/<name>/ provider implementations

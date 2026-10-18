@@ -1,8 +1,8 @@
 # Local Briolink session state (the bound role); never committed
 .briolink/
 
-# Build output
-/control
+# Build output (go build -o bin/control ./cmd/control; control/ is a package)
+/bin/
 
 # Local secrets (spike tokens); never committed
 .env

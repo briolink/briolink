@@ -1,0 +1,32 @@
+{
+  "format": "v0",
+  "roles": ["operator"],
+  "routes": [
+    {"name": "get_routing", "method": "GET", "path": "/routing", "role": "operator",
+     "context": "control", "call": "routing_view", "status": 200,
+     "request": [],
+     "response": [{"name": "routing", "type": "Routing", "doc": "Read-only: the founder changes it by pull request (M13)"}]},
+    {"name": "list_tasks", "method": "GET", "path": "/tasks", "role": "operator",
+     "context": "control", "call": "task_from_issue", "status": 200,
+     "request": [
+       {"name": "state", "in": "query", "type": "?string", "min": null, "max": null, "pattern": "^[a-z_]{1,20}$", "doc": "Only tasks in this TaskState; any other value selects none"},
+       {"name": "limit", "in": "query", "type": "?int", "min": 1, "max": null, "pattern": "", "doc": "Default 50, at most 200"}
+     ],
+     "response": [{"name": "tasks", "type": "[]Task", "doc": "Ascending issue number"}]},
+    {"name": "get_task", "method": "GET", "path": "/tasks/{number}", "role": "operator",
+     "context": "control", "call": "task_from_issue", "status": 200,
+     "request": [{"name": "number", "in": "path", "type": "int", "min": 1, "max": null, "pattern": "", "doc": ""}],
+     "response": [{"name": "task", "type": "Task", "doc": ""}]},
+    {"name": "list_runs", "method": "GET", "path": "/runs", "role": "operator",
+     "context": "control", "call": "page_size", "status": 200,
+     "request": [
+       {"name": "task", "in": "query", "type": "?int", "min": 1, "max": null, "pattern": "", "doc": "Only runs of this task"},
+       {"name": "limit", "in": "query", "type": "?int", "min": 1, "max": null, "pattern": "", "doc": "Default 50, at most 200"}
+     ],
+     "response": [{"name": "runs", "type": "[]RunRecord", "doc": "Newest first"}]},
+    {"name": "list_audit", "method": "GET", "path": "/audit", "role": "operator",
+     "context": "control", "call": "page_size", "status": 200,
+     "request": [{"name": "limit", "in": "query", "type": "?int", "min": 1, "max": null, "pattern": "", "doc": "Default 50, at most 200"}],
+     "response": [{"name": "entries", "type": "[]AuditEntry", "doc": "Newest first"}]}
+  ]
+}
