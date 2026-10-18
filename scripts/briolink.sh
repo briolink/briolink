@@ -82,9 +82,28 @@ board() {
     echo "- #$n $title: $line$flag_due"
   done
   echo
+  unblockable
   echo "Limits: $(scripts/session-usage.sh --limits)"
   echo
   echo "Which one do you want to take?"
+}
+
+# state:blocked issues whose Dependencies line names issues that are all closed. Read-only: `/briolink done` relabels.
+# Dependencies named only in words ("Garage set up") are not checked, so a listed issue may still wait on one.
+unblockable() {
+  local closed found=""
+  closed=$(gh issue list --state closed --limit 1000 --json number --jq '[.[].number]')
+  while IFS=$'\t' read -r n title refs; do
+    [ -n "$found" ] || { echo "Ready to unblock (every issue in Dependencies closed):"; found=1; }
+    echo "- #$n $title (after #${refs//,/, #})"
+  done < <(gh issue list --state open --label state:blocked --limit 100 --json number,title,body |
+    jq -r --argjson closed "$closed" '.[]
+      | ((.body | split("\n") | map(select(test("\\*\\*Dependencies:\\*\\*"))) | .[0]) // "") as $line
+      | ([$line | scan("#([0-9]+)") | .[0] | tonumber] | unique) as $refs
+      | select(($refs | length) > 0 and all($refs[]; . as $r | $closed | index($r)))
+      | [.number, .title, ($refs | map(tostring) | join(","))] | @tsv')
+  [ -n "$found" ] && echo
+  return 0
 }
 
 run() {
