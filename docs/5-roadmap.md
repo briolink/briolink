@@ -5,8 +5,8 @@
 The pointer between sessions, rewritten by `/briolink done`. One line each; the details live where the links point. **Lead** is a suggestion for the founder, never an instruction: a session proposes it and waits. Only the runner's loop acts on its own, and only on queued task contracts.
 
 - **Stage:** design, committed straight to `main`; next, P0.
-- **Last (2026-10-17):** `http` generator plugin built ([#54](https://github.com/briolink/briolink/issues/54)), PR [#69](https://github.com/briolink/briolink/pull/69) awaiting review; handlers call a `Service` seam, and its generated glue (load → pure function → save + outbox) became P1 issue [#70](https://github.com/briolink/briolink/issues/70).
-- **Lead:** review and merge PR [#69](https://github.com/briolink/briolink/pull/69) (then set [#70](https://github.com/briolink/briolink/issues/70) from `state:blocked` to `state:queued`); on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5).
+- **Last (2026-10-17):** #70 queued (PR [#69](https://github.com/briolink/briolink/pull/69) merged); client exit designed in [3-hosting.md](3-hosting.md#client-exit-a24) for [#50](https://github.com/briolink/briolink/issues/50) (late-lifted block executes at once, export to the client's R2), blocked on new spike [#71](https://github.com/briolink/briolink/issues/71).
+- **Lead:** on or after 2026-10-18, read the second probe run and decide [#5](https://github.com/briolink/briolink/issues/5); then take [#71](https://github.com/briolink/briolink/issues/71) (needs a throwaway GitHub org, Cloudflare account and B2 bucket from you) to unblock #50.
 
 The pipeline comes first (M9): no client work goes through it until P0 and P1 pass their exit criteria. Stages: **P** platform code (built by the pipeline from P1 on), **H** hosting operations (mostly by hand), **B** business work.
 
