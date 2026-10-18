@@ -6,13 +6,37 @@ into `gen/`; what is here is the rest.
 
 | Package | Does |
 | --- | --- |
-| `operator` | `operator.json` v0: listen address (private, never a wildcard; TLS unless loopback), database, routing file, token variable, adapter per port |
+| `operator` | `operator.json` v0: listen address (private, never a wildcard; TLS unless loopback), database, routing file, the master key's credential name, adapter per port |
 | `routing` | `spec/routing.json` v0: strict decoder and validation of the tier and job table |
 | `logic` | The pure functions of `spec/domain/control.json` (`control.Funcs`): sorting the routing view, reading a task from an issue, clamping a page size |
 | `store` | The control plane's SQLite database: run records and the append-only audit log (the database refuses an update or delete); applies `migrations/` at open; publishes an event after each write |
 | `events` | The in-process event broker: numbered events, the last 256 kept for reconnecting clients, a subscriber that falls 64 behind is cut off |
 | `service` | The generated `api.Service`, hand-written during the bootstrap (M9): every method reads |
-| `server` | `/api/v1` (the generated handler) and `/api/v1/events` (Server-Sent Events, the one hand-written route, because streaming does not fit the generated shape), bearer-token auth, `Cache-Control: no-store` |
+| `vault` | The secret store and API tokens (A20), in the control plane's database. Secrets: sealed with AES-256-GCM under the master key, bound to their name; put, rotate, delete and use, never listed or displayed. Tokens: random, only their SHA-256 kept, each acting as one role; revoked or expired ones are refused. Both may carry an expiry and a reminder date (`Expiring` lists those due) |
+| `server` | `/api/v1` (the generated handler) and `/api/v1/events` (Server-Sent Events, the one hand-written route, because streaming does not fit the generated shape), bearer-token auth against the vault, `Cache-Control: no-store` |
+
+## Secrets and tokens
+
+- **Master key:** 64 hexadecimal digits (`openssl rand -hex 32`) in a root-only
+  systemd credential named by `master_key_credential`
+  (`LoadCredentialEncrypted=` in the unit), also kept in the founder's password
+  manager. The control plane will not start if the file is readable by other
+  users or is not a key. A wrong key starts fine and fails per secret
+  (`vault: the master key does not open this secret`); changing the master key
+  (re-sealing every secret) is not built.
+- **Tokens** are created and revoked with `control token ...`
+  ([cmd/control](../cmd/control/README.md)); the token is printed once and
+  cannot be recovered. A token acts as one role (`operator` today); the routes
+  of another role answer a token of the wrong role with 403.
+- **Audit:** every secret put, rotate, delete and use, every token creation and
+  revocation, every use of a token (`GET /path`, the query left out) and every
+  refusal of a known token (revoked, expired) is a line, named by the token's
+  name. A token nobody issued leaves no line, so a stranger cannot grow the
+  log. If the line cannot be written, the use is refused. Nothing logs or
+  returns a secret, a token or the key.
+- **Expiry:** `control credentials -expiring` lists what the daily
+  credential-expiry check and the control center will list: reminder date
+  reached, or expiry within 30 days (or past).
 
 ## API v0 (all `GET`, role `operator`)
 
@@ -30,10 +54,11 @@ label of its issue; none is `unlabelled`, more than one is `conflict`.
 
 ## Not yet
 
-- **Authentication** is one bearer token, read from the environment variable
-  `operator.json` names, until the secret store and API tokens land
-  ([#58](https://github.com/briolink/briolink/issues/58)). No token configured
-  means nobody is let in, and the control plane refuses to start.
+- **API for the vault**: secrets and tokens are managed from the host with the
+  `control` commands; nothing in `/api/v1` lists or changes them yet. Listing
+  the expiring credentials over the API comes with the credential-expiry check
+  and the control center (P3).
+- **Master key rotation**: not built.
 - **Writes**: nothing writes through the API yet. The runner
   ([#60](https://github.com/briolink/briolink/issues/60)) will add run
   records through `store.AddRun`; the audit log is written by `store.AddAudit`.

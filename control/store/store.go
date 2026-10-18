@@ -63,6 +63,16 @@ func Open(ctx context.Context, path string, pub Publisher, now func() time.Time)
 	return s, nil
 }
 
+// DB is the database, for the packages that keep their own tables in it
+// (control/vault). Their writes are audited through Audit.
+func (s *Store) DB() *sql.DB { return s.db }
+
+// Audit is AddAudit without the entry, for callers that only log.
+func (s *Store) Audit(ctx context.Context, actor, action, subject, detail string) error {
+	_, err := s.AddAudit(ctx, actor, action, subject, detail)
+	return err
+}
+
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
