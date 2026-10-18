@@ -1,0 +1,25 @@
+{
+  "format": "v0",
+  "tiers": {
+    "coder": "qwen3-coder:30b",
+    "routine": "claude-sonnet-5-5",
+    "top": "claude-opus-5-5"
+  },
+  "jobs": {
+    "pure_function": "coder",
+    "specification": "top",
+    "tests_from_statechart": "routine",
+    "change_diff": "routine",
+    "escalation.first": "routine",
+    "escalation.second": "top",
+    "assessment.interpretation": "routine",
+    "session.architect": "top",
+    "session.escalation": "top",
+    "session.builder": "routine",
+    "session.operator": "routine",
+    "session.assessor": "routine",
+    "session.master": "routine"
+  },
+  "propose_promotion_below_bp": 6000,
+  "on_top_limit": "queue-design-jobs"
+}

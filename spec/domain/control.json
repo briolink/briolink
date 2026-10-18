@@ -1,0 +1,94 @@
+{
+  "format": "v0",
+  "context": "control",
+  "doc": "The control plane's read model: the routing table, the tasks mirrored from the code host, the run records and the audit log.",
+  "glossary": [
+    {"term": "Routing", "meaning": "The founder-owned table saying which model fills each tier and which tier takes each job"},
+    {"term": "TierModel", "meaning": "One tier of the routing table and the model that fills it"},
+    {"term": "JobTier", "meaning": "One job kind of the routing table and the tier that takes it"},
+    {"term": "Task", "meaning": "A task issue on the code host, read with its state, risk and kind"},
+    {"term": "TaskState", "meaning": "Where a task stands, from the issue's state label"},
+    {"term": "RunRecord", "meaning": "What the runner records about one attempt at a task: the tier, the routing row that chose it, the model used and the outcome"},
+    {"term": "RunOutcome", "meaning": "How a run ended, or running while it has not"},
+    {"term": "AuditEntry", "meaning": "One line of the append-only audit log: who did what to which subject, and when"}
+  ],
+  "enums": [
+    {"name": "TaskState", "doc": "The state label of an issue, with hyphens as underscores", "values": [
+      "queued", "running", "needs_founder", "needs_reasoner", "blocked", "waiting", "unlabelled", "conflict"
+    ]},
+    {"name": "RunOutcome", "doc": "", "values": ["running", "passed", "failed", "escalated", "cancelled"]}
+  ],
+  "values": [
+    {"name": "TierModel", "doc": "", "fields": [
+      {"name": "tier", "type": "string", "doc": "coder, routine or top"},
+      {"name": "model", "type": "string", "doc": ""}
+    ]},
+    {"name": "JobTier", "doc": "", "fields": [
+      {"name": "job", "type": "string", "doc": "A dotted job kind such as escalation.first"},
+      {"name": "tier", "type": "string", "doc": ""}
+    ]},
+    {"name": "Routing", "doc": "", "fields": [
+      {"name": "tiers", "type": "[]TierModel", "doc": ""},
+      {"name": "jobs", "type": "[]JobTier", "doc": ""},
+      {"name": "propose_promotion_below_bp", "type": "int", "doc": "Basis points: a job kind's solve rate under this proposes a higher tier (A17)"},
+      {"name": "on_top_limit", "type": "string", "doc": "What to do when the top tier's limit is reached"}
+    ]},
+    {"name": "Task", "doc": "", "fields": [
+      {"name": "number", "type": "int", "doc": "The issue number"},
+      {"name": "title", "type": "string", "doc": ""},
+      {"name": "state", "type": "TaskState", "doc": ""},
+      {"name": "risk", "type": "string", "doc": "From the risk: label, empty if none"},
+      {"name": "kind", "type": "string", "doc": "From the kind: label, empty if none"},
+      {"name": "milestone", "type": "string", "doc": "Empty if none"}
+    ]},
+    {"name": "RunRecord", "doc": "", "fields": [
+      {"name": "id", "type": "int", "doc": ""},
+      {"name": "task", "type": "int", "doc": "The task's issue number"},
+      {"name": "started_at", "type": "time", "doc": ""},
+      {"name": "tier", "type": "string", "doc": ""},
+      {"name": "job", "type": "string", "doc": "The routing row that chose the tier"},
+      {"name": "model", "type": "string", "doc": ""},
+      {"name": "outcome", "type": "RunOutcome", "doc": ""}
+    ]},
+    {"name": "AuditEntry", "doc": "", "fields": [
+      {"name": "id", "type": "int", "doc": ""},
+      {"name": "at", "type": "time", "doc": ""},
+      {"name": "actor", "type": "string", "doc": "A role or a component, never a secret"},
+      {"name": "action", "type": "string", "doc": ""},
+      {"name": "subject", "type": "string", "doc": ""},
+      {"name": "detail", "type": "string", "doc": ""}
+    ]}
+  ],
+  "entities": [],
+  "functions": [
+    {"name": "routing_view", "kind": "pure", "doc": "What /routing serves",
+     "params": [{"name": "routing", "type": "Routing", "doc": ""}],
+     "returns": [{"name": "routing", "type": "Routing", "doc": ""}],
+     "rules": [
+       "Returns the same routing with the tiers sorted by tier name and the jobs sorted by job name",
+       "Does not change its argument"
+     ]},
+    {"name": "task_from_issue", "kind": "pure", "doc": "Reads a task issue",
+     "params": [
+       {"name": "number", "type": "int", "doc": ""},
+       {"name": "title", "type": "string", "doc": ""},
+       {"name": "labels", "type": "[]string", "doc": "In the order the code host lists them"},
+       {"name": "milestone", "type": "string", "doc": ""}
+     ],
+     "returns": [{"name": "task", "type": "Task", "doc": ""}],
+     "rules": [
+       "The state comes from the labels that start with state: ; the part after the colon, with hyphens read as underscores, must be a TaskState other than unlabelled and conflict, or the label is ignored",
+       "One such label gives that state, none gives unlabelled, more than one gives conflict",
+       "The risk is the part after risk: of the first label that starts with it, and the kind likewise after kind: ; empty when there is none",
+       "The number, title and milestone are copied"
+     ]},
+    {"name": "page_size", "kind": "pure", "doc": "How many items a list returns",
+     "params": [{"name": "limit", "type": "int", "doc": "0 when the caller gave none"}],
+     "returns": [{"name": "size", "type": "int", "doc": ""}],
+     "rules": [
+       "Returns 50 when limit is 0 or negative",
+       "Returns 200 when limit is above 200",
+       "Otherwise returns limit"
+     ]}
+  ]
+}

@@ -60,9 +60,10 @@ func Generate(ctx context.Context, in Input) (map[string][]byte, error) {
 	sort.Slice(queries, func(i, j int) bool { return queries[i].Name < queries[j].Name })
 
 	code, err := render(queriesTemplate, struct {
-		Package string
-		Queries []spec.Query
-	}{in.Package, queries})
+		Package  string
+		UsesTime bool
+		Queries  []spec.Query
+	}{in.Package, usesTime(queries), queries})
 	if err != nil {
 		return nil, fmt.Errorf("rendering queries.go: %w", err)
 	}
@@ -78,6 +79,19 @@ func Generate(ctx context.Context, in Input) (map[string][]byte, error) {
 		"queries.go":            code,
 		"queries_check_test.go": test,
 	}, nil
+}
+
+// usesTime reports whether any parameter or column maps to a time type, so
+// the generated file imports "time" only when it needs it.
+func usesTime(queries []spec.Query) bool {
+	for _, q := range queries {
+		for _, c := range append(append([]spec.Column(nil), q.Params...), q.Columns...) {
+			if strings.TrimPrefix(c.Type, "?") == "time" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // goType is the Go type a spec column or parameter type maps to: the plain
@@ -143,7 +157,9 @@ package {{.Package}}
 import (
 	"context"
 	"database/sql"
+{{- if .UsesTime}}
 	"time"
+{{- end}}
 )
 
 // DBTX is the *sql.DB or *sql.Tx method set Queries needs.

@@ -58,6 +58,37 @@ func TestGenerate_Pilot(t *testing.T) {
 	}
 }
 
+// TestGenerate_ImportsTimeOnlyWhenUsed: a file that imports "time" without
+// using it does not compile, so the import follows the types the queries use.
+func TestGenerate_ImportsTimeOnlyWhenUsed(t *testing.T) {
+	gen := func(queries []spec.Query) string {
+		t.Helper()
+		files, err := Generate(context.Background(), Input{Package: "queries", Schema: pilotSchema, Queries: queries})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(files["queries.go"])
+	}
+	var withTime, withoutTime []spec.Query
+	for _, q := range pilotQueries(t) {
+		if q.Name == "list_lines" {
+			withoutTime = append(withoutTime, q)
+		}
+		if q.Name == "get_invoice" {
+			withTime = append(withTime, q) // issued_at is a ?time column
+		}
+	}
+	if len(withTime) != 1 || len(withoutTime) != 1 {
+		t.Fatalf("fixture queries missing: %d, %d", len(withTime), len(withoutTime))
+	}
+	if code := gen(withoutTime); strings.Contains(code, `"time"`) {
+		t.Errorf("imports time without using it:\n%s", code)
+	}
+	if code := gen(withTime); !strings.Contains(code, `"time"`) {
+		t.Errorf("does not import time:\n%s", code)
+	}
+}
+
 // TestGenerate_RejectsBadQuery: a query that doesn't match the schema
 // fails generation with the same problem the check would report, and
 // nothing is returned.
