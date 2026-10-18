@@ -227,19 +227,21 @@ Free, time-limited sites on the preview domain `trybriolink.ca` (E20), created f
 
 ### Private network (A21)
 
-Hub and spoke, hub on the ops host. Servers dial out (`PersistentKeepalive = 25`) and keep zero inbound ports; the hub exposes one UDP port and answers no unauthenticated packet.
+Hub and spoke, the hub on a small cloud VM with a fixed address (E12). Every other peer dials out (`PersistentKeepalive = 25`) and keeps zero inbound ports, the ops host included, so it works behind any NAT and on any uplink; the hub exposes one UDP port and answers no unauthenticated packet.
 
 | Peer | Address | Inbound |
 | --- | --- | --- |
-| Ops host (hub) | 10.88.0.1 | One UDP port; a DNS-only record kept current by DDNS |
+| Hub | 10.88.0.2 | One UDP port; a fixed address under a DNS-only name |
+| Ops host | 10.88.0.1 | None |
+| Relay (out of band) | 10.88.0.3 | None |
 | Servers | 10.88.0.10–49 | None |
 | Founder devices | 10.88.0.100–119 | None |
 
-Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers → ops host replica endpoint and metrics; everything else dropped. The hub enforces this in `ops/wg-hub.nft` (loaded by `ops/wg-hub-fw.service`); on a host running Docker, whose iptables FORWARD policy drops wg0 → wg0 traffic after the table has accepted it, the same unit also accepts wg0 → wg0 in `DOCKER-USER` (measured in [#49](https://github.com/briolink/briolink/issues/49)). Spokes re-resolve the hub from a timer every 2 minutes, acting only when the last handshake is over 135 s old, so a spoke is back within about 4 minutes of a hub address change (measured in [#26](https://github.com/briolink/briolink/issues/26); the DDNS job that feeds the name, `ops/wg-ddns.sh`, was checked on a throwaway record, and a real ISP address change has not yet happened to confirm the whole chain, [#51](https://github.com/briolink/briolink/issues/51)). The hub runs userspace WireGuard (E12). Keys are generated on each host and rotated yearly; a lost device is removed by deleting its peer. SSH listens on the private interface only, keys only, no root. Public sites and failover don't depend on the network; if the hub is down, use the providers' consoles.
+Forwarding: devices → servers SSH; devices → ops host 443 and SSH; devices → relay SSH and console; servers → ops host replica endpoint and metrics; everything else dropped. The hub enforces this in `ops/wg-hub.nft` (loaded by `ops/wg-hub-fw.service`); on a host running Docker, whose iptables FORWARD policy drops wg0 → wg0 traffic after the table has accepted it, the same unit also accepts wg0 → wg0 in `DOCKER-USER` (measured in [#49](https://github.com/briolink/briolink/issues/49)). Peers dial the hub by name and re-resolve it from a timer every 2 minutes, acting only when the last handshake is over 135 s old, so moving the hub is a DNS change they follow within about 4 minutes (measured in [#26](https://github.com/briolink/briolink/issues/26)). On the ops host, WireGuard and SSH run on Windows, so the way in doesn't depend on WSL. The relay gives out-of-band access to the ops host: screen, keyboard, power and reset, and a watchdog (E22). Keys are generated on each host and rotated yearly; a lost device is removed by deleting its peer. SSH listens on the private interface only, keys only, no root. Public sites and failover don't depend on the network; if the hub is down, use the providers' consoles, and the relay or physical access for the ops host.
 
 ### Control plane
 
-- Runs on the ops host, bound to the hub's private address; `ops.<brand domain>` is a DNS-only record to it, with a DNS-01 certificate from a DNS token limited to the brand zone (A20). Nothing listens publicly. Setup (measured in [#25](https://github.com/briolink/briolink/issues/25)): a grey-cloud A record `ops` → the hub address; a Cloudflare token with Zone DNS Edit and Zone Read on the brand zone only; `lego run --dns cloudflare -d ops.<brand domain>` with `CLOUDFLARE_DNS_API_TOKEN` set, renewed by a timer. Issuing takes about 20 s, and spokes validate it over the private network with no resolver override.
+- Runs on the ops host, bound to its private address; `ops.<brand domain>` is a DNS-only record to it, with a DNS-01 certificate from a DNS token limited to the brand zone (A20). Nothing listens publicly. Setup (measured in [#25](https://github.com/briolink/briolink/issues/25)): a grey-cloud A record `ops` → the ops host's private address; a Cloudflare token with Zone DNS Edit and Zone Read on the brand zone only; `lego run --dns cloudflare -d ops.<brand domain>` with `CLOUDFLARE_DNS_API_TOKEN` set, renewed by a timer. Issuing takes about 20 s, and spokes validate it over the private network with no resolver override.
 - Login: password (argon2id) + TOTP, even on the private network; 12 h sessions; no passkeys (A25).
 - Secrets: each sealed with AES-256-GCM under a master key from a root-only systemd credential (also in the founder's password manager); rotated or deleted, never displayed.
 - Audit log: append-only, copied daily to Briolink's ops bucket.
@@ -270,7 +272,8 @@ Forwarding: devices → servers SSH; devices → ops host 443 and SSH; servers �
 | Provider quotas (storage, operations, function requests, backup) | 1–6 h | Over 70% of a free limit |
 | Provider rules (e.g. idle reclaim, [4-choices.md](4-choices.md#e9--oracle-cloud-a1)) | 1 h | Per provider |
 | Server health pushed over the network: disk, memory per pod, updates, reboot | 5 min | Disk > 80%, a pod at its cap, updates > 7 days |
-| Private network handshake per peer | 5 min | Older than 5 min |
+| Private network handshake per peer, seen from the hub | 5 min | Older than 5 min |
+| Clock offset per host | 1 h | Over 2 s |
 | Promote trends, trial pool | Daily, 1 h | A client should move up; pool > 80% |
 | Domain expiry (RDAP), edge certificate, credential expiry | Daily | < 30, < 14, < 30 days |
 

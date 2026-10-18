@@ -21,8 +21,9 @@ Briolink sells three offers on one pipeline, in this order: **Assess** an existi
 | Lease store | A conditional write on one object | Failover |
 | Offsite backup | An S3-compatible bucket in the client's account; keys that list and write but can't delete; lifecycle expiry | Database replicas, nightly copies |
 | Compute | A Linux host (arm64 or amd64) with systemd, rootless containers, cgroup v2; an API that can stop an instance | Client pods, trials |
-| Ops host | An always-on machine for the control plane, the warm standby, the coder and the network hub | Operator side |
-| Private network | An encrypted peer network that servers dial out to | Admin access, replicas, metrics |
+| Ops host | An always-on machine for the control plane, the warm standby and the coder | Operator side |
+| Private network | An encrypted peer network that every peer dials out to, through a hub at a fixed address | Admin access, replicas, metrics |
+| Out of band | The ops host's uplink, plus its screen, keyboard, power and reset, reachable when the host itself is not | Ops host recovery |
 | Code host | Git with protected branches and required reviews by code owners; issues with labels and milestones through an API; CI on tags; an OCI registry with attestations and read-only pull tokens | Repos, work tracking, approvals, deploys |
 | Coder model | Cheap per task (local by default, no per-token cost); turns a task contract into code; which model is a routing-table entry | Runner |
 | Reasoner model | Structured output, cost reporting, a tier chosen per call | Runner, specifications |

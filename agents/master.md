@@ -66,7 +66,8 @@ Master asks the founder only for a decision, never to route work. A kind of work
 | Role / port / adapter | A capability the core needs / its interface with contract tests / one provider's implementation |
 | Binding | The adapter filling a role today; thin or deep, with a fallback and an exit |
 | Installation | Repo + operator config + secrets + an ops host |
-| Ops host | The always-on machine running the control plane, the coder, the warm standby and the network hub |
+| Ops host | The always-on machine running the control plane, the coder and the warm standby |
+| Hub / relay | The private network's hub, a small cloud VM / the phone beside the ops host: its uplink and out-of-band console |
 | Core / plugin | The minimal client-app runtime / an optional generic capability chosen in `spec/project.json` |
 | Architect | The reasoner designing a project, approved by the founder |
 | Assessment | One audit run: tools collect evidence, interpretation follows |
