@@ -121,12 +121,57 @@ Generators are plugins (A5): each spec kind belongs to the plugin that serves it
 | `spec/domain/<context>.json` | One bounded context: glossary, entities and invariants, statecharts, pure function signatures and rules | `domain`: types, transition tables, dispatchers, stubs, derived tests |
 | `spec/routes.json` | Method, path, role, request and response fields with validation, the use-case function | `http`: handlers, validation, route table, typed structs |
 | `spec/queries/*.sql` | Statements with header comments: name, cardinality (`:one`, `:many`, `:exec`), typed parameters, result columns and types | `sqlite`: typed functions. It applies the migrations to an in-memory database and checks every statement against it without running it (below); a generated test repeats the check |
+| `spec/service.json` | The values the shell supplies to calls: per route param, `clock`, `new_id` or `sequence:<name>` | `service`: the implementation of `http`'s `Service`, one method per route ([below](#generated-service)) |
 
 **The `sqlite` check** (measured in [#13](https://github.com/briolink/briolink/issues/13), [plugins/sqlite/spike](../plugins/sqlite/spike/README.md)): every table must be `STRICT`, and double-quoted strings are off (`_dqs=0`), so a misspelt `"column"` is an error rather than a string. Preparing each statement catches a wrong table, column (`WHERE` included), function or `INSERT` value count; `EXPLAIN` gives the parameter count; the prepared statement's column metadata gives the result columns' count, names, declared types and, through the origin column, `NOT NULL`. Spec types map to column types: `string` and `time` (RFC 3339, UTC) to `TEXT`, `int` and `bool` to `INTEGER`, `float` to `REAL`, `bytes` to `BLOB`. SQLite has no parameter types and hides expression types and outer-join nullability, so those rest on the generated functions' typed Go parameters, `STRICT` tables rejecting a wrongly typed value, and declared non-null columns scanned into plain Go values, which fail on a `NULL` at run time. Expression columns are reported as unchecked, not rejected.
 
 **Format v0** is the Go types and their `Validate` methods, one package per kind (M4): `core/project` (`project.json` and `plugin.json`, the plugin manifest), `plugins/domain/spec`, `plugins/http/spec`, `plugins/sqlite/spec` and `runner/contract`. Every JSON file starts with `"format": "v0"` and is decoded by `core/strictjson`: one value, no unknown or duplicate key, exact case; an absent field is its zero value, which `Validate` rejects wherever it matters. Each package's `testdata/` holds the `acme` pilot fixture; its tests break every rule once.
 
 Generated code goes to `gen/` with a `DO NOT EDIT` header. The mutation checker (`quality/mutate`) is our own, built on `go/ast`.
+
+### Generated service
+
+*Choices: M2, A26.* The `service` plugin (P1, [#70](https://github.com/briolink/briolink/issues/70)) generates the middle of every operation (load → pure function → save + outbox), so the hand-written part stays the pure functions. It requires `domain`, `http` and `sqlite`; none of them requires it. A project without it implements `Service` by hand (the control plane's API during the bootstrap, M9).
+
+**Per route**, the kind of its `call` decides the method. Every route in `spec/routes.json` must be one of these; any other fails generation, named. A route that doesn't fit the shape (streaming, uploads, external calls) belongs to its own plugin's spec, never to `routes.json` and never to hand-written project code.
+
+| Call | Generated method |
+| --- | --- |
+| `Entity.event` | In one `BEGIN IMMEDIATE` transaction: load (absent is `ErrNotFound`), `<Entity>Step`, update, outbox; then the response |
+| Pure function returning entity E, taking no E | Create: insert in the statechart's initial state after the invariants hold, outbox |
+| Pure function taking E and returning E (E without a statechart only) | Load, call, invariants, update, outbox |
+| Pure function taking E and returning other values | Read: load and call, outside a write transaction, no outbox |
+
+- **Arguments** are filled by name and type: the loaded entity, else a request field, else a supplied value. A param none of them fills fails generation, named. The entity is loaded by the request's `id`.
+- **Response fields:** one of type E gets the entity after the call; the others match the function's returns by name and type.
+- **Errors:** the domain's as `http` maps them (409, 422); a value in the database that doesn't decode (an unknown enum value) is a 500.
+
+**Load and save** use the project's queries, found by name; the generator checks each one's params and columns against the entity and, when one is missing or wrong, fails with the header it expected:
+
+| Query | Params | Columns |
+| --- | --- | --- |
+| `get_<entity>` `:one` | `id` | Every field that is not a list, plus `state` if E has a statechart |
+| `insert_<entity>` / `update_<entity>` `:exec` | Those same fields and `state` (`update` finds the row by `id`) | — |
+| `list_<entity>_<field>` `:many` | `<entity>_id` | The value type's fields, ordered by `position` |
+| `delete_<entity>_<field>` / `insert_<entity>_<field>` `:exec` | `<entity>_id` / `<entity>_id`, `position` and the value's fields | — |
+
+A list of a value type lives in a child table and is replaced whole on each save. Version 0 supports scalar, enum and optional scalar fields and lists of flat values; anything else fails generation.
+
+**Supplied values** are declared, never inferred from a name (M13), in `spec/service.json`: `{"route", "param", "from"}`. Pure functions never read a clock or draw a random value, so the shell passes them:
+
+| Source | Type | Value |
+| --- | --- | --- |
+| `clock` | `time` | Now, in UTC |
+| `new_id` | `string` | 128 random bits in lowercase hex |
+| `sequence:<name>` | `int` | The next value of a named counter (`service_sequences`, the plugin's migration), taken inside the write transaction so a rollback leaves no gap |
+
+The clock and the id source are a `Sources` interface given to `New`, so tests fix them. Formatting an allocated value ("INV-0042") is a rule of the model, in a pure function.
+
+**Outbox:** `New(db, sources, outboxes ...Outbox)`. Every write calls each `Outbox.Record(ctx, tx, Change{Context, Entity, ID, Event})` inside its transaction; a failing `Record` rolls the write back, and a failed write records nothing. `bake` implements it as its `bake_outbox` row ([3-hosting.md](3-hosting.md#baked-and-live)), so `service` doesn't depend on `bake`.
+
+**Concurrent writes** (A26) are serialised by the transaction: the database is opened with `_txlock=immediate` and a `busy_timeout` pragma, so a second write waits and steps from the committed state.
+
+**Not in version 0:** per-row ownership (whether this member may act on this invoice), for `session` and `auth`; nested values and optional values; a version column for stale clients (A26).
 
 ## App core and plugins
 
@@ -156,6 +201,7 @@ Each plugin solves a generic capability (never one client's case), ships a manif
 | `bake` | Outbox, planner, renderer, publisher | What gets baked, index split size |
 | `live` | Live JSON for fast-changing state | TTL, paths |
 | `tenancy` | Tenant from the hostname, per-tenant database and storage | Hostname pattern, open-database cap |
+| `service` | The generated `Service`: load, pure function, save and outbox in one transaction ([above](#generated-service)) | — |
 
 ## Assess
 
