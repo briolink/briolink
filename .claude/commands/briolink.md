@@ -5,6 +5,7 @@ argument-hint: [role|list|done|exit] [task]
 Arguments: $ARGUMENTS
 
 Read `agents/master.md` if it is not already in the context, and follow its "Session and roles".
+First, for every form below: if the active `gh` account (`gh api user --jq .login`) is not `ahmed-boussayri`, run `gh auth switch --user ahmed-boussayri` and say so in one line; if that fails, say so and stop.
 - `exit`: delete `.briolink/bound` and answer as the plain model from now on, with no role line.
 - `list`: list the roles from `agents/master.md` and stop.
 - `done`: close the piece of work. Check `git status` and unpushed commits; commit and push what belongs to the work, and write any decision or open point the conversation holds into the docs, an issue, or the roadmap. An issue left waiting on a date or an outside event gets `state:waiting` and a `Waiting until <date>: <reason>` line in its body; remove both once it no longer waits. Rewrite the roadmap's Now section: Last (date, one line, the IDs or links touched) and Lead (one line, phrased as a suggestion; once issues exist, it links the issue). Run `scripts/session-usage.sh` last and end the closing commit's message with its output as a `Usage: ` line. Then reply with a short list of where everything was saved and what was left out, the usage line, and end with: `Saved. Run /clear to start the next piece of work fresh.` Never clear with anything unsaved.
