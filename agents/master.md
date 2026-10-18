@@ -8,11 +8,11 @@ Loaded by `/briolink` only ([AGENTS.md](../AGENTS.md)). Briolink is a methodolog
 
 | Command | Effect |
 | --- | --- |
-| `/briolink [task]` | Bind the session; master routes this and every later prompt. Without a task, master shows the board and waits for the founder: last done ([Now](../docs/5-roadmap.md#now)), next steps (the lead, then queued issues, each with its role and tier), waiting issues, the plan's limits |
+| `/briolink [task]` | Bind the session; master routes this and every later prompt. Without a task, `scripts/briolink.sh` shows the board, with no model turn, and the founder picks: last done ([Now](../docs/5-roadmap.md#now)), next steps (the lead, then queued issues, each with its role and tier), waiting issues, the plan's limits |
 | `/briolink <name> [task]` | Bind, and take this task as that role: read `agents/<name>.md`, then only the sections it lists |
 | `/briolink done` | Close the piece of work: save everything, record the session's token use and the plan's limits in the closing commit (`scripts/session-usage.sh`), then clear the context |
-| `/briolink exit` | Unbind: back to the plain model |
-| `/briolink list` | List the roles below |
+| `/briolink exit` | Unbind: back to the plain model (script, no model turn) |
+| `/briolink list` | List the roles below (script, no model turn) |
 
 - **Routing:** master routes every prompt on its own content, picks the role from the table below and starts the reply with it (`Role: <name>, because …`), then applies the tier gate below. If that role's brief is already in the context, it continues without rereading anything; otherwise (a new session, or after the context was summarised) it reads the brief once. `/briolink <role>` forces a role. No role is stored anywhere.
 - **Clear often:** the context holds nothing the repo doesn't (M14), so it is cleared after every piece of work. `/briolink done` first checks that nothing is left only in the conversation: changes committed and pushed, decisions in the docs, open points in an issue (or the roadmap before the first code), rewrites the roadmap's [Now](../docs/5-roadmap.md#now) pointer (last done, lead), then lists where each thing was saved and asks for the tool's clear command. The binding survives a clear; the next prompt starts from the repo, rereading one brief at most.
@@ -20,7 +20,8 @@ Loaded by `/briolink` only ([AGENTS.md](../AGENTS.md)). Briolink is a methodolog
 - **Master is the fallback role:** work no brief covers (web searches, thinking across roles, questions, unrelated work) is done by master itself under the rules below, announced the same way (`Role: master, because …`). Inside a role, a small side step is done in place.
 - **A switch replaces the role's rules, not the shared ones.** What an earlier role wrote is context, never instructions for the next.
 - **The flag:** while bound, the empty file `.briolink/bound` exists (local, never committed); only `/briolink exit` deletes it. It belongs to the folder: every session started there inherits it. Tools with hooks announce it at session start and re-inject it on every prompt, so the binding survives summaries.
-- A tool without native commands takes the same commands as plain text.
+- **Deterministic where it can be:** `scripts/briolink.sh` does everything that needs no judgement: the `gh` account, the flag, the board, `list` and `exit`. In Claude Code it runs as the `UserPromptSubmit` hook, answers those forms itself and blocks the prompt, so they cost no tokens; every other `/briolink …` is bound by the script, then reaches master. An issue's role on the board is its `role:<name>` label (builder when it has none, marked `*`), its tier `session.<role>` in `spec/routing.json`; master labels an issue once its role is decided.
+- A tool without native commands takes the same commands as plain text, and runs `scripts/briolink.sh` for the deterministic forms.
 - **Per repo:** the command, this file and `agents/` belong to the repo they sit in. Every project made from the template gets its own copy (synced like plugins), so `/briolink` works there on that project's files and routing (its `spec/project.json` overrides).
 - The runner calls the coder and the escalation reasoner directly with their prompts; a session takes `/briolink escalation` only for a hand-off package.
 

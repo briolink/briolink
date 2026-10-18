@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$CLAUDE_PROJECT_DIR/.briolink/bound\" ] && echo 'Briolink bound: as master, route this prompt to a role (agents/master.md), start the reply with Role: <name>, and halt if the tier of the role is not your model.'; exit 0"
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/briolink.sh\" --hook"
           }
         ]
       }
