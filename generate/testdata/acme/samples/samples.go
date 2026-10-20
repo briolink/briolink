@@ -24,33 +24,44 @@ func invoice(paid int64, lines ...acme.Line) acme.Invoice {
 	return acme.Invoice{Id: "i1", Customer: "c1", Currency: acme.CurrencyEur, Lines: lines, Paid: paid}
 }
 
+func str(s string) *string { return &s }
+
 type c = acmetest.InvoiceCase
 
 // Invoice implements acmetest.InvoiceSamples.
 type Invoice struct{}
 
 // Fire: transitions in the order of the spec; each rule's boundary from
-// the inside.
+// the inside, with the entity the step must return.
 func (Invoice) Fire(i int) []c {
 	switch i {
-	case 0: // draft add_line: quantity 1 and a price of 0 are the lowest accepted
-		return []c{{invoice(0), acme.InvoiceAddLine{Line: line(1, 0)}}}
-	case 1: // draft issue: exactly one line
-		return []c{{invoice(0, line(1, 1)), acme.InvoiceIssue{Number: "n1", Now: now}}}
-	case 2: // draft void: no guard
-		return []c{{invoice(0), acme.InvoiceVoid{Reason: "mistake"}}}
-	case 3: // issued record_payment: the amount equals the balance, with and without a part paid
+	case 0: // draft add_line: quantity 1 and a price of 0 are the lowest accepted; appended after the existing line
+		return []c{{invoice(0), acme.InvoiceAddLine{Line: line(1, 0)}, invoice(0, line(2, 500), line(1, 0))}}
+	case 1: // draft issue: exactly one line; number and issued_at set, nothing else
+		e := invoice(0, line(1, 1))
+		want := e
+		want.Number, want.IssuedAt = str("n1"), &now
+		return []c{{e, acme.InvoiceIssue{Number: "n1", Now: now}, want}}
+	case 2: // draft void: no guard; the reason is kept
+		want := invoice(0)
+		want.VoidReason = str("mistake")
+		return []c{{invoice(0), acme.InvoiceVoid{Reason: "mistake"}, want}}
+	case 3: // issued record_payment: the amount equals the balance, with and without a part paid, and the smallest balance
 		return []c{
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 1000, Now: now}},
-			{invoice(400), acme.InvoiceRecordPayment{Amount: 600, Now: now}},
+			{invoice(0), acme.InvoiceRecordPayment{Amount: 1000, Now: now}, invoice(1000)},
+			{invoice(400), acme.InvoiceRecordPayment{Amount: 600, Now: now}, invoice(1000)},
+			{invoice(0, line(1, 1)), acme.InvoiceRecordPayment{Amount: 1, Now: now}, invoice(1, line(1, 1))},
 		}
-	case 4: // issued record_payment: one cent, and one cent below the balance
+	case 4: // issued record_payment: one cent, and one cent below the balance, with and without a part paid
 		return []c{
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 1, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 999, Now: now}},
+			{invoice(0), acme.InvoiceRecordPayment{Amount: 1, Now: now}, invoice(1)},
+			{invoice(0), acme.InvoiceRecordPayment{Amount: 999, Now: now}, invoice(999)},
+			{invoice(400), acme.InvoiceRecordPayment{Amount: 599, Now: now}, invoice(999)},
 		}
-	case 5: // issued void: nothing paid
-		return []c{{invoice(0), acme.InvoiceVoid{Reason: "mistake"}}}
+	case 5: // issued void: nothing paid; the reason is kept
+		want := invoice(0)
+		want.VoidReason = str("mistake")
+		return []c{{invoice(0), acme.InvoiceVoid{Reason: "mistake"}, want}}
 	}
 	panic("no such transition")
 }
@@ -60,29 +71,30 @@ func (Invoice) Block(i int) []c {
 	switch i {
 	case 0: // quantity 0, a price below 0, a blank description
 		return []c{
-			{invoice(0), acme.InvoiceAddLine{Line: line(0, 0)}},
-			{invoice(0), acme.InvoiceAddLine{Line: line(1, -1)}},
-			{invoice(0), acme.InvoiceAddLine{Line: acme.Line{Description: " ", Quantity: 1, UnitPrice: 0}}},
+			{Entity: invoice(0), Event: acme.InvoiceAddLine{Line: line(0, 0)}},
+			{Entity: invoice(0), Event: acme.InvoiceAddLine{Line: line(1, -1)}},
+			{Entity: invoice(0), Event: acme.InvoiceAddLine{Line: acme.Line{Description: " ", Quantity: 1, UnitPrice: 0}}},
 		}
 	case 1: // no lines
 		e := invoice(0)
 		e.Lines = nil
-		return []c{{e, acme.InvoiceIssue{Number: "n1", Now: now}}}
+		return []c{{Entity: e, Event: acme.InvoiceIssue{Number: "n1", Now: now}}}
 	case 3: // one cent below the balance, one above, zero; zero on a zero balance
 		return []c{
-			{invoice(0, line(1, 0)), acme.InvoiceRecordPayment{Amount: 0, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 999, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 1001, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 0, Now: now}},
+			{Entity: invoice(0, line(1, 0)), Event: acme.InvoiceRecordPayment{Amount: 0, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 999, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 1001, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 0, Now: now}},
 		}
-	case 4: // equal to the balance, above it, zero
+	case 4: // equal to the balance, with and without a part paid, above it, zero
 		return []c{
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 1000, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 1001, Now: now}},
-			{invoice(0), acme.InvoiceRecordPayment{Amount: 0, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 1000, Now: now}},
+			{Entity: invoice(400), Event: acme.InvoiceRecordPayment{Amount: 600, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 1001, Now: now}},
+			{Entity: invoice(0), Event: acme.InvoiceRecordPayment{Amount: 0, Now: now}},
 		}
 	case 5: // one cent paid
-		return []c{{invoice(1), acme.InvoiceVoid{Reason: "mistake"}}}
+		return []c{{Entity: invoice(1), Event: acme.InvoiceVoid{Reason: "mistake"}}}
 	}
 	panic("no such guarded transition")
 }
@@ -92,13 +104,28 @@ func (Invoice) Forbid(_ acme.InvoiceState, event string) c {
 	e := invoice(0)
 	switch event {
 	case "add_line":
-		return c{e, acme.InvoiceAddLine{Line: line(1, 1)}}
+		return c{Entity: e, Event: acme.InvoiceAddLine{Line: line(1, 1)}}
 	case "issue":
-		return c{e, acme.InvoiceIssue{Number: "n1", Now: now}}
+		return c{Entity: e, Event: acme.InvoiceIssue{Number: "n1", Now: now}}
 	case "record_payment":
-		return c{e, acme.InvoiceRecordPayment{Amount: 1, Now: now}}
+		return c{Entity: e, Event: acme.InvoiceRecordPayment{Amount: 1, Now: now}}
 	case "void":
-		return c{e, acme.InvoiceVoid{Reason: "mistake"}}
+		return c{Entity: e, Event: acme.InvoiceVoid{Reason: "mistake"}}
 	}
 	panic("no such event")
+}
+
+// Violate: each invariant broken one step outside each boundary, the other
+// invariants kept.
+func (Invoice) Violate(invariant string) []acme.Invoice {
+	switch invariant {
+	case "paid_within_total": // one cent below 0, one above the total
+		return []acme.Invoice{invoice(-1), invoice(1001)}
+	case "lines_valid": // a quantity of 0, a price of -1 (beside a line that keeps the total above paid)
+		return []acme.Invoice{
+			invoice(0, line(2, 500), line(0, 1)),
+			invoice(0, line(2, 500), line(1, -1)),
+		}
+	}
+	panic("no such invariant")
 }

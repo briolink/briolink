@@ -143,6 +143,23 @@ func funcMutants(src *source, fd *ast.FuncDecl) []Mutant {
 		stack = append(stack, n)
 
 		switch n := n.(type) {
+		case *ast.BlockStmt:
+			// An assignment, a call or an increment is deleted.
+			for i, s := range n.List {
+				switch s := s.(type) {
+				case *ast.AssignStmt:
+					if s.Tok == token.DEFINE {
+						continue
+					}
+				case *ast.ExprStmt, *ast.IncDecStmt:
+				default:
+					continue
+				}
+				n, i, s := n, i, s
+				add(s.Pos(), "statement", "deleted",
+					func() { n.List[i] = &ast.EmptyStmt{Semicolon: s.Pos(), Implicit: true} },
+					func() { n.List[i] = s })
+			}
 		case *ast.BinaryExpr:
 			for _, to := range swaps[n.Op] {
 				from, to := n.Op, to

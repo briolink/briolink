@@ -9,3 +9,5 @@ import (
 )
 
 func TestInvoice(t *testing.T) { acmetest.Invoice(t, reference.Impl{}, samples.Invoice{}) }
+
+func TestPure(t *testing.T) { samples.Pure(t, reference.Impl{}) }

@@ -14,10 +14,22 @@ import (
 	"example.com/acme/gen/domain/acme"
 )
 
-// InvoiceCase is an entity and an event to apply to it.
+// InvoiceCase is an entity and an event to apply to it. Want is the entity
+// the step must return, written by hand; Block and Forbid cases leave it
+// empty.
 type InvoiceCase struct {
 	Entity acme.Invoice
 	Event  acme.InvoiceEvent
+	Want   acme.Invoice
+}
+
+// InvoiceInvariants lists the invariants of Invoice by name.
+var InvoiceInvariants = []struct {
+	Name  string
+	Holds func(f acme.Funcs, e acme.Invoice) bool
+}{
+	{"paid_within_total", acme.Funcs.PaidWithinTotal},
+	{"lines_valid", acme.Funcs.LinesValid},
 }
 
 // InvoiceSamples supplies the inputs the derived tests need for Invoice: entities and
@@ -29,7 +41,9 @@ type InvoiceCase struct {
 // Block(i): cases where the guard of transition i is false; every
 // boundary the rule has, from the outside (one case per side).
 // Forbid: any entity valid for the state, with the event.
-// Fire and Block must return at least one case.
+// Violate(name): entities that break the invariant name, one step outside
+// each boundary its rule has, and keep every other invariant.
+// Fire, Block and Violate must return at least one case.
 //
 // Transitions, in order:
 //
@@ -43,6 +57,7 @@ type InvoiceSamples interface {
 	Fire(i int) []InvoiceCase
 	Block(i int) []InvoiceCase
 	Forbid(state acme.InvoiceState, event string) InvoiceCase
+	Violate(invariant string) []acme.Invoice
 }
 
 // Invoice runs every derived test for Invoice against f: every transition fires with its
@@ -75,12 +90,8 @@ func Invoice(t *testing.T, f acme.Funcs, s InvoiceSamples) {
 					if state != tr.To {
 						t.Fatalf("state %s, want %s", state, tr.To)
 					}
-					want := e
-					if tr.Apply != nil {
-						want = tr.Apply(f, e, ev)
-					}
-					if !reflect.DeepEqual(next, want) {
-						t.Fatalf("entity %+v, want %+v", next, want)
+					if !reflect.DeepEqual(next, c.Want) {
+						t.Fatalf("entity %+v, want %+v", next, c.Want)
 					}
 					if name := acme.InvoiceViolated(f, next); name != "" {
 						t.Fatalf("invariant %s broken after the step", name)
@@ -127,6 +138,25 @@ func Invoice(t *testing.T, f acme.Funcs, s InvoiceSamples) {
 			}
 			if state != p.State || !reflect.DeepEqual(next, e) {
 				t.Fatal("a rejected event changed the state or the entity")
+			}
+		})
+	}
+	for _, inv := range InvoiceInvariants {
+		inv := inv
+		t.Run("violate/"+inv.Name, func(t *testing.T) {
+			cases := s.Violate(inv.Name)
+			if len(cases) == 0 {
+				t.Fatal("samples gave no case")
+			}
+			for k, e := range cases {
+				if inv.Holds(f, e) {
+					t.Errorf("case %d: %s holds on %+v, want false", k, inv.Name, e)
+				}
+				for _, other := range InvoiceInvariants {
+					if other.Name != inv.Name && !other.Holds(f, e) {
+						t.Errorf("case %d: %s is broken too; the sample must break %s alone", k, other.Name, inv.Name)
+					}
+				}
 			}
 		})
 	}

@@ -1,0 +1,65 @@
+package reference
+
+import (
+	"strings"
+	"time"
+
+	"example.com/acme/gen/domain/acme"
+)
+
+type Impl struct{}
+
+var _ acme.Funcs = Impl{}
+
+func total(l []acme.Line) int64 {
+	var sum int64
+	for _, x := range l {
+		sum += x.Quantity * x.UnitPrice
+	}
+	return sum
+}
+
+func (Impl) LineAcceptable(_ acme.Invoice, line acme.Line) bool {
+	return line.Quantity >= 1 && line.UnitPrice >= 0 && strings.TrimSpace(line.Description) != ""
+}
+
+func (Impl) HasLines(invoice acme.Invoice) bool { return len(invoice.Lines) > 0 }
+
+func (Impl) SettlesBalance(invoice acme.Invoice, amount int64) bool {
+	return amount > 0 && amount == total(invoice.Lines)-invoice.Paid
+}
+
+func (Impl) PartialPayment(invoice acme.Invoice, amount int64) bool {
+	return amount > 0 && amount < total(invoice.Lines)-invoice.Paid
+}
+
+func (Impl) Unpaid(invoice acme.Invoice) bool { return invoice.Paid == 0 }
+
+// Faults the mutator cannot make: each action does nothing.
+func (Impl) AddLine(invoice acme.Invoice, _ acme.Line) acme.Invoice { return invoice }
+
+func (Impl) Issue(invoice acme.Invoice, _ string, _ time.Time) acme.Invoice { return invoice }
+
+func (Impl) ApplyPayment(invoice acme.Invoice, amount int64) acme.Invoice {
+	invoice.Paid += amount
+	return invoice
+}
+
+func (Impl) Void(invoice acme.Invoice, _ string) acme.Invoice { return invoice }
+
+func (Impl) PaidWithinTotal(invoice acme.Invoice) bool {
+	return invoice.Paid >= 0 && invoice.Paid <= total(invoice.Lines)
+}
+
+func (Impl) LinesValid(invoice acme.Invoice) bool {
+	for _, l := range invoice.Lines {
+		if l.Quantity < 1 || l.UnitPrice < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (Impl) NewInvoice(string, string, acme.Currency) acme.Invoice { return acme.Invoice{} }
+
+func (Impl) Total(acme.Invoice) int64 { return 0 }
