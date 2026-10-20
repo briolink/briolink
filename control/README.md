@@ -12,7 +12,10 @@ into `gen/`; what is here is the rest.
 | `store` | The control plane's SQLite database: run records and the append-only audit log (the database refuses an update or delete); applies `migrations/` at open; publishes an event after each write |
 | `events` | The in-process event broker: numbered events, the last 256 kept for reconnecting clients, a subscriber that falls 64 behind is cut off |
 | `service` | The generated `api.Service`, hand-written during the bootstrap (M9): every method reads |
-| `server` | `/api/v1` (the generated handler) and `/api/v1/events` (Server-Sent Events, the one hand-written route, because streaming does not fit the generated shape), bearer-token auth, `Cache-Control: no-store` |
+| `expiry` | The optional expiry date and rotation reminder of a secret or a token, and where it stands on a day (`ok`, `remind`, `expired`): what the daily credential-expiry check and the control center's credentials section read |
+| `secrets` | The secret store (A20): values sealed with AES-256-GCM, the name as associated data, under a master key from a root-only systemd credential. Put, rotate, delete, open (for the code that needs it), list (names and dates, never values), and a check that every value opens. Every call is audited by name |
+| `tokens` | API tokens (A20): scoped to a role, only the SHA-256 kept, shown once at issue, revocable, optional expiry. Every use, and every refusal of a token that was presented, is audited by token name and request line; a token whose use cannot be logged is refused |
+| `server` | `/api/v1` (the generated handler) and `/api/v1/events` (Server-Sent Events, the one hand-written route, because streaming does not fit the generated shape), token auth (`tokens`), `Cache-Control: no-store` |
 
 ## API v0 (all `GET`, role `operator`)
 
@@ -30,10 +33,14 @@ label of its issue; none is `unlabelled`, more than one is `conflict`.
 
 ## Not yet
 
-- **Authentication** is one bearer token, read from the environment variable
-  `operator.json` names, until the secret store and API tokens land
-  ([#58](https://github.com/briolink/briolink/issues/58)). No token configured
-  means nobody is let in, and the control plane refuses to start.
+- **Managing secrets and tokens** is a local command on the ops host
+  (`control secret …`, `control token …`, [cmd/control](../cmd/control/README.md)),
+  because the API has no write route yet and the first token has to come from
+  somewhere. The control center's routes come with P3.
+- **Reading the dates**: `secrets.List` and `tokens.List` carry each
+  credential's expiry and reminder; the daily credential-expiry check
+  ([3-hosting § Checks](../docs/3-hosting.md#checks)) and the control center
+  do not call them yet.
 - **Writes**: nothing writes through the API yet. The runner
   ([#60](https://github.com/briolink/briolink/issues/60)) will add run
   records through `store.AddRun`; the audit log is written by `store.AddAudit`.

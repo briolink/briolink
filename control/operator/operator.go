@@ -1,8 +1,8 @@
 // Package operator is format v0 of operator.json, the installation's config
 // for the control plane (docs/2-architecture.md § Roles and adapters): where
 // it listens, where its files are and which adapter fills each port.
-// Secrets are not in it; the file names the environment variable that holds
-// the API token.
+// Secrets are not in it; the file names the systemd credential that holds the
+// master key of the secret store.
 package operator
 
 import (
@@ -31,10 +31,10 @@ type Config struct {
 	Database string `json:"database"`
 	// RoutingFile is the path of spec/routing.json.
 	RoutingFile string `json:"routing_file"`
-	// TokenEnv names the environment variable holding the API token, until
-	// the secret store lands.
-	TokenEnv string   `json:"token_env"`
-	Adapters Adapters `json:"adapters"`
+	// MasterKeyCredential names the systemd credential, a root-only file in
+	// $CREDENTIALS_DIRECTORY, that holds the secret store's master key.
+	MasterKeyCredential string   `json:"master_key_credential"`
+	Adapters            Adapters `json:"adapters"`
 }
 
 // TLS is a certificate and its key, as files.
@@ -92,7 +92,7 @@ func (c *Config) Validate() error {
 		l.Addf("tls", "cert_file and key_file must each be a path on one line")
 	}
 	for name, v := range map[string]string{
-		"database": c.Database, "routing_file": c.RoutingFile, "token_env": c.TokenEnv,
+		"database": c.Database, "routing_file": c.RoutingFile, "master_key_credential": c.MasterKeyCredential,
 		"adapters.codehost": c.Adapters.CodeHost, "adapters.coder": c.Adapters.Coder, "adapters.reasoner": c.Adapters.Reasoner,
 	} {
 		if !check.Text(v) {

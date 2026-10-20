@@ -13,7 +13,7 @@ import (
 	"github.com/briolink/briolink/plugins/sqlite/spec"
 )
 
-const schema = "CREATE TABLE runs (\n  id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n  task       INTEGER NOT NULL,\n  started_at TEXT    NOT NULL,\n  tier       TEXT    NOT NULL,\n  job        TEXT    NOT NULL,\n  model      TEXT    NOT NULL,\n  outcome    TEXT    NOT NULL\n) STRICT;\n\nCREATE INDEX runs_by_task ON runs (task, id);\n\n-- Append-only: the store has no statement that updates or deletes a row,\n-- and these triggers refuse one from anywhere else.\nCREATE TABLE audit (\n  id      INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n  at      TEXT    NOT NULL,\n  actor   TEXT    NOT NULL,\n  action  TEXT    NOT NULL,\n  subject TEXT    NOT NULL,\n  detail  TEXT    NOT NULL\n) STRICT;\n\nCREATE TRIGGER audit_no_update BEFORE UPDATE ON audit\nBEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;\n\nCREATE TRIGGER audit_no_delete BEFORE DELETE ON audit\nBEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;\n\n"
+const schema = "CREATE TABLE runs (\n  id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n  task       INTEGER NOT NULL,\n  started_at TEXT    NOT NULL,\n  tier       TEXT    NOT NULL,\n  job        TEXT    NOT NULL,\n  model      TEXT    NOT NULL,\n  outcome    TEXT    NOT NULL\n) STRICT;\n\nCREATE INDEX runs_by_task ON runs (task, id);\n\n-- Append-only: the store has no statement that updates or deletes a row,\n-- and these triggers refuse one from anywhere else.\nCREATE TABLE audit (\n  id      INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n  at      TEXT    NOT NULL,\n  actor   TEXT    NOT NULL,\n  action  TEXT    NOT NULL,\n  subject TEXT    NOT NULL,\n  detail  TEXT    NOT NULL\n) STRICT;\n\nCREATE TRIGGER audit_no_update BEFORE UPDATE ON audit\nBEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;\n\nCREATE TRIGGER audit_no_delete BEFORE DELETE ON audit\nBEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;\n\n-- The secret store: each value sealed with AES-256-GCM, the name as the\n-- associated data. No statement returns a value to a caller outside the\n-- vault, and none shows it.\nCREATE TABLE secrets (\n  name       TEXT NOT NULL PRIMARY KEY,\n  sealed     TEXT NOT NULL,\n  created_at TEXT NOT NULL,\n  rotated_at TEXT,\n  expires_at TEXT,\n  remind_at  TEXT\n) STRICT;\n\n-- API tokens: only the SHA-256 of a token is kept; the token itself is shown\n-- once, when it is issued.\nCREATE TABLE tokens (\n  id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n  name       TEXT NOT NULL UNIQUE,\n  hash       TEXT NOT NULL UNIQUE,\n  scope      TEXT NOT NULL,\n  created_at TEXT NOT NULL,\n  expires_at TEXT,\n  remind_at  TEXT,\n  revoked_at TEXT\n) STRICT;\n\n"
 
 func TestGeneratedQueriesMatchSchema(t *testing.T) {
 	ctx := context.Background()
@@ -27,6 +27,27 @@ func TestGeneratedQueriesMatchSchema(t *testing.T) {
 	}
 	for _, q := range []spec.Query{
 		{
+			Name:        "delete_secret",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "name", Type: "string"}},
+			Columns:     []spec.Column{{Name: "name", Type: "string"}},
+			SQL:         "DELETE FROM secrets WHERE name = ? RETURNING name;",
+		},
+		{
+			Name:        "get_secret",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "name", Type: "string"}},
+			Columns:     []spec.Column{{Name: "sealed", Type: "string"}},
+			SQL:         "SELECT sealed FROM secrets WHERE name = ?;",
+		},
+		{
+			Name:        "get_token_by_hash",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "hash", Type: "string"}},
+			Columns:     []spec.Column{{Name: "id", Type: "int"}, {Name: "name", Type: "string"}, {Name: "scope", Type: "string"}, {Name: "expires_at", Type: "?string"}, {Name: "revoked_at", Type: "?string"}},
+			SQL:         "SELECT id, name, scope, expires_at, revoked_at FROM tokens WHERE hash = ?;",
+		},
+		{
 			Name:        "insert_audit",
 			Cardinality: ":one",
 			Params:      []spec.Column{{Name: "at", Type: "string"}, {Name: "actor", Type: "string"}, {Name: "action", Type: "string"}, {Name: "subject", Type: "string"}, {Name: "detail", Type: "string"}},
@@ -39,6 +60,20 @@ func TestGeneratedQueriesMatchSchema(t *testing.T) {
 			Params:      []spec.Column{{Name: "task", Type: "int"}, {Name: "started_at", Type: "string"}, {Name: "tier", Type: "string"}, {Name: "job", Type: "string"}, {Name: "model", Type: "string"}, {Name: "outcome", Type: "string"}},
 			Columns:     []spec.Column{{Name: "id", Type: "int"}},
 			SQL:         "INSERT INTO runs (task, started_at, tier, job, model, outcome) VALUES (?, ?, ?, ?, ?, ?) RETURNING id;",
+		},
+		{
+			Name:        "insert_secret",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "name", Type: "string"}, {Name: "sealed", Type: "string"}, {Name: "created_at", Type: "string"}, {Name: "expires_at", Type: "?string"}, {Name: "remind_at", Type: "?string"}},
+			Columns:     []spec.Column{{Name: "name", Type: "string"}},
+			SQL:         "INSERT INTO secrets (name, sealed, created_at, expires_at, remind_at) VALUES (?, ?, ?, ?, ?) RETURNING name;",
+		},
+		{
+			Name:        "insert_token",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "name", Type: "string"}, {Name: "hash", Type: "string"}, {Name: "scope", Type: "string"}, {Name: "created_at", Type: "string"}, {Name: "expires_at", Type: "?string"}, {Name: "remind_at", Type: "?string"}},
+			Columns:     []spec.Column{{Name: "id", Type: "int"}},
+			SQL:         "INSERT INTO tokens (name, hash, scope, created_at, expires_at, remind_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id;",
 		},
 		{
 			Name:        "list_audit",
@@ -60,6 +95,41 @@ func TestGeneratedQueriesMatchSchema(t *testing.T) {
 			Params:      []spec.Column{{Name: "task", Type: "int"}, {Name: "limit", Type: "int"}},
 			Columns:     []spec.Column{{Name: "id", Type: "int"}, {Name: "task", Type: "int"}, {Name: "started_at", Type: "string"}, {Name: "tier", Type: "string"}, {Name: "job", Type: "string"}, {Name: "model", Type: "string"}, {Name: "outcome", Type: "string"}},
 			SQL:         "SELECT id, task, started_at, tier, job, model, outcome FROM runs WHERE task = ? ORDER BY id DESC LIMIT ?;",
+		},
+		{
+			Name:        "list_sealed",
+			Cardinality: ":many",
+			Params:      []spec.Column{},
+			Columns:     []spec.Column{{Name: "name", Type: "string"}, {Name: "sealed", Type: "string"}},
+			SQL:         "SELECT name, sealed FROM secrets ORDER BY name;",
+		},
+		{
+			Name:        "list_secrets",
+			Cardinality: ":many",
+			Params:      []spec.Column{},
+			Columns:     []spec.Column{{Name: "name", Type: "string"}, {Name: "created_at", Type: "string"}, {Name: "rotated_at", Type: "?string"}, {Name: "expires_at", Type: "?string"}, {Name: "remind_at", Type: "?string"}},
+			SQL:         "SELECT name, created_at, rotated_at, expires_at, remind_at FROM secrets ORDER BY name;",
+		},
+		{
+			Name:        "list_tokens",
+			Cardinality: ":many",
+			Params:      []spec.Column{},
+			Columns:     []spec.Column{{Name: "id", Type: "int"}, {Name: "name", Type: "string"}, {Name: "scope", Type: "string"}, {Name: "created_at", Type: "string"}, {Name: "expires_at", Type: "?string"}, {Name: "remind_at", Type: "?string"}, {Name: "revoked_at", Type: "?string"}},
+			SQL:         "SELECT id, name, scope, created_at, expires_at, remind_at, revoked_at FROM tokens ORDER BY id;",
+		},
+		{
+			Name:        "revoke_token",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "revoked_at", Type: "string"}, {Name: "name", Type: "string"}},
+			Columns:     []spec.Column{{Name: "id", Type: "int"}},
+			SQL:         "UPDATE tokens SET revoked_at = ? WHERE name = ? AND revoked_at IS NULL RETURNING id;",
+		},
+		{
+			Name:        "rotate_secret",
+			Cardinality: ":one",
+			Params:      []spec.Column{{Name: "sealed", Type: "string"}, {Name: "rotated_at", Type: "string"}, {Name: "expires_at", Type: "?string"}, {Name: "remind_at", Type: "?string"}, {Name: "name", Type: "string"}},
+			Columns:     []spec.Column{{Name: "name", Type: "string"}},
+			SQL:         "UPDATE secrets SET sealed = ?, rotated_at = ?, expires_at = ?, remind_at = ? WHERE name = ? RETURNING name;",
 		},
 	} {
 		if problems := gen.Check(ctx, db, q); len(problems) > 0 {

@@ -13,29 +13,35 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/control/events"
+	"github.com/briolink/briolink/control/expiry"
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/routing"
 	"github.com/briolink/briolink/control/server"
 	"github.com/briolink/briolink/control/service"
 	"github.com/briolink/briolink/control/store"
+	"github.com/briolink/briolink/control/tokens"
 	"github.com/briolink/briolink/gen/domain/control"
 	"github.com/briolink/briolink/port/codehost"
 )
 
-const token = "s3cret-token"
+// token is the bearer token newRig issued for its server (tests do not run in
+// parallel).
+var token string
 
 type rig struct {
 	url    string
 	store  *store.Store
 	broker *events.Broker
 	host   *codehost.Fake
+	tokens *tokens.Service
 }
 
 func newRig(t *testing.T, heartbeat time.Duration) rig {
 	t.Helper()
 	ctx := context.Background()
 	broker := events.New()
-	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "c.db"), broker, func() time.Time {
+	path := filepath.Join(t.TempDir(), "c.db")
+	st, err := store.Open(ctx, path, broker, func() time.Time {
 		return time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 	})
 	if err != nil {
@@ -53,9 +59,20 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 		},
 		Host: host, Records: st, Funcs: logic.Impl{},
 	}
-	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Token: token, Heartbeat: heartbeat}))
+	// The token is issued through a store with a broker of its own, so the
+	// server's event numbers start at the first thing the tests do.
+	setup, err := store.Open(ctx, path, events.New(), st.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token, err = tokens.New(setup.DB(), setup, st.Now, []string{server.Role, "reader"}).Issue(ctx, "test", "ci", server.Role, expiry.Dates{}); err != nil {
+		t.Fatal(err)
+	}
+	setup.Close()
+	tk := tokens.New(st.DB(), st, st.Now, []string{server.Role, "reader"})
+	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Auth: server.TokenAuth(tk), Heartbeat: heartbeat}))
 	t.Cleanup(srv.Close)
-	return rig{srv.URL, st, broker, host}
+	return rig{srv.URL, st, broker, host, tk}
 }
 
 func (r rig) get(t *testing.T, path, bearer string) (int, http.Header, map[string]any) {
@@ -100,14 +117,65 @@ func TestEveryEndpointNeedsTheToken(t *testing.T) {
 	}
 }
 
-func TestNoConfiguredTokenAuthenticatesNobody(t *testing.T) {
-	auth := server.BearerAuth("")
-	for _, h := range []string{"", "Bearer ", "Bearer x"} {
-		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Authorization", h)
-		if _, ok := auth(req); ok {
-			t.Errorf("header %q authenticated against an empty token", h)
-		}
+func TestNoAuthenticatorLetsNobodyIn(t *testing.T) {
+	srv := httptest.NewServer(server.Handler(server.Config{}))
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/api/v1/routing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Errorf("without an authenticator: %d", resp.StatusCode)
+	}
+}
+
+func (r rig) auditLines(t *testing.T) string {
+	t.Helper()
+	entries, err := r.store.ListAudit(context.Background(), 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		b.WriteString(e.Actor + "|" + e.Action + "|" + e.Subject + "|" + e.Detail + "\n")
+	}
+	return b.String()
+}
+
+func TestTokenUseRevocationAndScope(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t, 0)
+	if status, _, _ := r.get(t, "/api/v1/runs", token); status != 200 {
+		t.Fatalf("a valid token: %d", status)
+	}
+	if !strings.Contains(r.auditLines(t), "token:ci|token.use|ci|scope operator; GET /api/v1/runs") {
+		t.Errorf("the use is not in the audit log:\n%s", r.auditLines(t))
+	}
+
+	// A token scoped to another role authenticates, and is refused the route.
+	reader, err := r.tokens.Issue(ctx, "test", "viewer", "reader", expiry.Dates{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, _, _ := r.get(t, "/api/v1/runs", reader); status != 403 {
+		t.Errorf("an out-of-scope token on a route: %d", status)
+	}
+	if status, _, _ := r.get(t, "/api/v1/events", reader); status != 403 {
+		t.Errorf("an out-of-scope token on the stream: %d", status)
+	}
+	if !strings.Contains(r.auditLines(t), "token:viewer|token.use|viewer|scope reader; GET /api/v1/runs") {
+		t.Errorf("the out-of-scope use is not in the audit log:\n%s", r.auditLines(t))
+	}
+
+	if err := r.tokens.Revoke(ctx, "test", "ci"); err != nil {
+		t.Fatal(err)
+	}
+	if status, _, _ := r.get(t, "/api/v1/runs", token); status != 401 {
+		t.Errorf("a revoked token: %d", status)
+	}
+	if log := r.auditLines(t); !strings.Contains(log, "token:ci|token.denied|ci|revoked; GET /api/v1/runs") || strings.Contains(log, token) {
+		t.Errorf("the revoked use in the audit log:\n%s", log)
 	}
 }
 
@@ -185,8 +253,10 @@ func TestRunsAndAudit(t *testing.T) {
 		t.Errorf("no runs must be [] not null: %v", body)
 	}
 	_, _, body = r.get(t, "/api/v1/audit", token)
+	// Newest first: this request's own token use and the four earlier ones,
+	// then the "start" line, then the token's issue.
 	entries := body["entries"].([]any)
-	if len(entries) != 1 || entries[0].(map[string]any)["action"] != "start" {
+	if len(entries) != 7 || entries[0].(map[string]any)["action"] != "token.use" || entries[5].(map[string]any)["action"] != "start" || entries[6].(map[string]any)["action"] != "token.issue" {
 		t.Errorf("audit = %v", body)
 	}
 }
@@ -250,7 +320,8 @@ func TestEventStreamDeliversWrites(t *testing.T) {
 	if _, err := r.store.AddAudit(context.Background(), "control", "start", "plane", ""); err != nil {
 		t.Fatal(err)
 	}
-	if l := next(t, lines); l != "id: 2" {
+	// 1 is "earlier", 2 the stream's own token use, logged before it subscribed.
+	if l := next(t, lines); l != "id: 3" {
 		t.Errorf("line = %q", l)
 	}
 	if l := next(t, lines); l != "event: audit" {

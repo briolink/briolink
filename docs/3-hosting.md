@@ -244,6 +244,7 @@ Forwarding: devices → servers SSH; devices → ops host 443 and SSH; devices �
 - Runs on the ops host, bound to its private address; `ops.<brand domain>` is a DNS-only record to it, with a DNS-01 certificate from a DNS token limited to the brand zone (A20). Nothing listens publicly. Setup (measured in [#25](https://github.com/briolink/briolink/issues/25)): a grey-cloud A record `ops` → the ops host's private address; a Cloudflare token with Zone DNS Edit and Zone Read on the brand zone only; `lego run --dns cloudflare -d ops.<brand domain>` with `CLOUDFLARE_DNS_API_TOKEN` set, renewed by a timer. Issuing takes about 20 s, and spokes validate it over the private network with no resolver override.
 - Login: password (argon2id) + TOTP, even on the private network; 12 h sessions; no passkeys (A25).
 - Secrets: each sealed with AES-256-GCM under a master key from a root-only systemd credential (also in the founder's password manager); rotated or deleted, never displayed.
+- API tokens: scoped to one role, only the SHA-256 kept, shown once when issued, revocable; every use is in the audit log. A secret or a token may carry an expiry date and a rotation reminder, which the daily credential-expiry check and the control center list.
 - Audit log: append-only, copied daily to Briolink's ops bucket.
 - Its database is replicated by Litestream to Briolink's ops bucket, beside the operator config and the encrypted secrets, so any Linux host can restore it.
 - The external pinger expects a ping every 5 minutes.

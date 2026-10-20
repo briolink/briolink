@@ -18,6 +18,46 @@ func New(db DBTX) *Queries { return &Queries{db: db} }
 
 type Queries struct{ db DBTX }
 
+type DeleteSecretRow struct {
+	Name string
+}
+
+const delete_secretSQL = "DELETE FROM secrets WHERE name = ? RETURNING name;"
+
+func (q *Queries) DeleteSecret(ctx context.Context, name string) (DeleteSecretRow, error) {
+	var row DeleteSecretRow
+	err := q.db.QueryRowContext(ctx, delete_secretSQL, name).Scan(&row.Name)
+	return row, err
+}
+
+type GetSecretRow struct {
+	Sealed string
+}
+
+const get_secretSQL = "SELECT sealed FROM secrets WHERE name = ?;"
+
+func (q *Queries) GetSecret(ctx context.Context, name string) (GetSecretRow, error) {
+	var row GetSecretRow
+	err := q.db.QueryRowContext(ctx, get_secretSQL, name).Scan(&row.Sealed)
+	return row, err
+}
+
+type GetTokenByHashRow struct {
+	Id        int64
+	Name      string
+	Scope     string
+	ExpiresAt sql.NullString
+	RevokedAt sql.NullString
+}
+
+const get_token_by_hashSQL = "SELECT id, name, scope, expires_at, revoked_at FROM tokens WHERE hash = ?;"
+
+func (q *Queries) GetTokenByHash(ctx context.Context, hash string) (GetTokenByHashRow, error) {
+	var row GetTokenByHashRow
+	err := q.db.QueryRowContext(ctx, get_token_by_hashSQL, hash).Scan(&row.Id, &row.Name, &row.Scope, &row.ExpiresAt, &row.RevokedAt)
+	return row, err
+}
+
 type InsertAuditRow struct {
 	Id int64
 }
@@ -39,6 +79,30 @@ const insert_runSQL = "INSERT INTO runs (task, started_at, tier, job, model, out
 func (q *Queries) InsertRun(ctx context.Context, task int64, started_at string, tier string, job string, model string, outcome string) (InsertRunRow, error) {
 	var row InsertRunRow
 	err := q.db.QueryRowContext(ctx, insert_runSQL, task, started_at, tier, job, model, outcome).Scan(&row.Id)
+	return row, err
+}
+
+type InsertSecretRow struct {
+	Name string
+}
+
+const insert_secretSQL = "INSERT INTO secrets (name, sealed, created_at, expires_at, remind_at) VALUES (?, ?, ?, ?, ?) RETURNING name;"
+
+func (q *Queries) InsertSecret(ctx context.Context, name string, sealed string, created_at string, expires_at sql.NullString, remind_at sql.NullString) (InsertSecretRow, error) {
+	var row InsertSecretRow
+	err := q.db.QueryRowContext(ctx, insert_secretSQL, name, sealed, created_at, expires_at, remind_at).Scan(&row.Name)
+	return row, err
+}
+
+type InsertTokenRow struct {
+	Id int64
+}
+
+const insert_tokenSQL = "INSERT INTO tokens (name, hash, scope, created_at, expires_at, remind_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id;"
+
+func (q *Queries) InsertToken(ctx context.Context, name string, hash string, scope string, created_at string, expires_at sql.NullString, remind_at sql.NullString) (InsertTokenRow, error) {
+	var row InsertTokenRow
+	err := q.db.QueryRowContext(ctx, insert_tokenSQL, name, hash, scope, created_at, expires_at, remind_at).Scan(&row.Id)
 	return row, err
 }
 
@@ -126,4 +190,108 @@ func (q *Queries) ListRunsByTask(ctx context.Context, task int64, limit int64) (
 		out = append(out, row)
 	}
 	return out, rows.Err()
+}
+
+type ListSealedRow struct {
+	Name   string
+	Sealed string
+}
+
+const list_sealedSQL = "SELECT name, sealed FROM secrets ORDER BY name;"
+
+func (q *Queries) ListSealed(ctx context.Context) ([]ListSealedRow, error) {
+	rows, err := q.db.QueryContext(ctx, list_sealedSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ListSealedRow
+	for rows.Next() {
+		var row ListSealedRow
+		if err := rows.Scan(&row.Name, &row.Sealed); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+type ListSecretsRow struct {
+	Name      string
+	CreatedAt string
+	RotatedAt sql.NullString
+	ExpiresAt sql.NullString
+	RemindAt  sql.NullString
+}
+
+const list_secretsSQL = "SELECT name, created_at, rotated_at, expires_at, remind_at FROM secrets ORDER BY name;"
+
+func (q *Queries) ListSecrets(ctx context.Context) ([]ListSecretsRow, error) {
+	rows, err := q.db.QueryContext(ctx, list_secretsSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ListSecretsRow
+	for rows.Next() {
+		var row ListSecretsRow
+		if err := rows.Scan(&row.Name, &row.CreatedAt, &row.RotatedAt, &row.ExpiresAt, &row.RemindAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+type ListTokensRow struct {
+	Id        int64
+	Name      string
+	Scope     string
+	CreatedAt string
+	ExpiresAt sql.NullString
+	RemindAt  sql.NullString
+	RevokedAt sql.NullString
+}
+
+const list_tokensSQL = "SELECT id, name, scope, created_at, expires_at, remind_at, revoked_at FROM tokens ORDER BY id;"
+
+func (q *Queries) ListTokens(ctx context.Context) ([]ListTokensRow, error) {
+	rows, err := q.db.QueryContext(ctx, list_tokensSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ListTokensRow
+	for rows.Next() {
+		var row ListTokensRow
+		if err := rows.Scan(&row.Id, &row.Name, &row.Scope, &row.CreatedAt, &row.ExpiresAt, &row.RemindAt, &row.RevokedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+type RevokeTokenRow struct {
+	Id int64
+}
+
+const revoke_tokenSQL = "UPDATE tokens SET revoked_at = ? WHERE name = ? AND revoked_at IS NULL RETURNING id;"
+
+func (q *Queries) RevokeToken(ctx context.Context, revoked_at string, name string) (RevokeTokenRow, error) {
+	var row RevokeTokenRow
+	err := q.db.QueryRowContext(ctx, revoke_tokenSQL, revoked_at, name).Scan(&row.Id)
+	return row, err
+}
+
+type RotateSecretRow struct {
+	Name string
+}
+
+const rotate_secretSQL = "UPDATE secrets SET sealed = ?, rotated_at = ?, expires_at = ?, remind_at = ? WHERE name = ? RETURNING name;"
+
+func (q *Queries) RotateSecret(ctx context.Context, sealed string, rotated_at string, expires_at sql.NullString, remind_at sql.NullString, name string) (RotateSecretRow, error) {
+	var row RotateSecretRow
+	err := q.db.QueryRowContext(ctx, rotate_secretSQL, sealed, rotated_at, expires_at, remind_at, name).Scan(&row.Name)
+	return row, err
 }

@@ -5,30 +5,26 @@
 package server
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/briolink/briolink/control/events"
+	"github.com/briolink/briolink/control/tokens"
 	api "github.com/briolink/briolink/gen/http"
 )
 
-// Role is the one role the control plane's routes know; the secret store
-// (#58) brings real accounts.
+// Role is the one role the control plane's routes know; a token is scoped to it.
 const Role = "operator"
 
 // Config is what the handler needs.
 type Config struct {
 	Service api.Service
 	Events  *events.Broker
-	// Token is the bearer token that authenticates as Role. Empty means no
-	// request authenticates.
-	Token string
+	// Auth tells which role a request acts as. TokenAuth is the production one.
+	Auth api.Auth
 	// Heartbeat is how often an idle event stream writes a comment line, so a
 	// dead connection is noticed and proxies keep it open. Zero is 15 s.
 	Heartbeat time.Duration
@@ -39,30 +35,32 @@ func Handler(c Config) http.Handler {
 	if c.Heartbeat <= 0 {
 		c.Heartbeat = 15 * time.Second
 	}
-	auth := BearerAuth(c.Token)
+	auth := c.Auth
+	if auth == nil { // no way to authenticate: nobody is let in
+		auth = func(*http.Request) (string, bool) { return "", false }
+	}
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/v1/events", noStore(authorised(auth, http.HandlerFunc(c.stream))))
 	mux.Handle("/", noStore(api.Handler(c.Service, auth)))
 	return mux
 }
 
-// BearerAuth authenticates a request carrying "Authorization: Bearer <token>"
-// as Role. The comparison takes the same time whatever the token's length.
-func BearerAuth(token string) api.Auth {
-	want := sha256.Sum256([]byte(token))
+// TokenAuth authenticates a request carrying "Authorization: Bearer <token>"
+// as the role the token is scoped to. Each use, and each refusal of a token
+// that was presented, goes to the audit log by token name and request line;
+// a request that presents no token is not logged. A token whose use cannot be
+// logged is refused.
+func TokenAuth(svc *tokens.Service) api.Auth {
 	return func(r *http.Request) (string, bool) {
-		if token == "" {
-			return "", false
-		}
-		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		token, ok := tokens.Token(r.Header.Get("Authorization"))
 		if !ok {
 			return "", false
 		}
-		sum := sha256.Sum256([]byte(got))
-		if subtle.ConstantTimeCompare(sum[:], want[:]) != 1 {
+		p, err := svc.Authenticate(r.Context(), token, r.Method+" "+r.URL.Path)
+		if err != nil {
 			return "", false
 		}
-		return Role, true
+		return p.Scope, true
 	}
 }
 

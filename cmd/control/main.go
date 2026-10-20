@@ -23,9 +23,11 @@ import (
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/operator"
 	"github.com/briolink/briolink/control/routing"
+	"github.com/briolink/briolink/control/secrets"
 	"github.com/briolink/briolink/control/server"
 	"github.com/briolink/briolink/control/service"
 	"github.com/briolink/briolink/control/store"
+	"github.com/briolink/briolink/control/tokens"
 	"github.com/briolink/briolink/port/codehost"
 	"github.com/briolink/briolink/port/coder"
 	"github.com/briolink/briolink/port/reasoner"
@@ -37,7 +39,7 @@ var version = "dev"
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, os.Args[1:], os.Getenv, os.Stdout, nil); err != nil {
+	if err := run(ctx, os.Args[1:], os.Getenv, os.Stdin, os.Stdout, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "control:", err)
 		os.Exit(1)
 	}
@@ -85,9 +87,11 @@ func wire(a operator.Adapters) (ports, error) {
 	return p, err
 }
 
-// run serves until ctx ends. ready, when not nil, is called with the address
+// run serves until ctx ends, or, when args name a command after the flags
+// (admin.go), carries it out and returns. in is where a secret's value is
+// read from. ready, when not nil, is called with the address
 // the server listens on once it accepts connections.
-func run(ctx context.Context, args []string, getenv func(string) string, out io.Writer, ready func(addr string)) error {
+func run(ctx context.Context, args []string, getenv func(string) string, in io.Reader, out io.Writer, ready func(addr string)) error {
 	fs := flag.NewFlagSet("control", flag.ContinueOnError)
 	configPath := fs.String("config", "operator.json", "the installation's operator config")
 	showVersion := fs.Bool("version", false, "print the version and exit")
@@ -103,13 +107,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, out io.
 	if err != nil {
 		return err
 	}
+	if fs.NArg() > 0 {
+		return admin(ctx, cfg, fs.Args(), getenv, in, out)
+	}
 	table, err := routing.Load(cfg.RoutingFile)
 	if err != nil {
 		return err
 	}
-	apiToken := getenv(cfg.TokenEnv)
-	if apiToken == "" {
-		return fmt.Errorf("the environment variable %s (token_env) is empty: the API would accept nobody", cfg.TokenEnv)
+	key, err := secrets.LoadMasterKey(getenv("CREDENTIALS_DIRECTORY"), cfg.MasterKeyCredential)
+	if err != nil {
+		return err
 	}
 	p, err := wire(cfg.Adapters)
 	if err != nil {
@@ -122,11 +129,26 @@ func run(ctx context.Context, args []string, getenv func(string) string, out io.
 		return err
 	}
 	defer db.Close()
+	vault, err := secrets.New(db.DB(), key, db, time.Now)
+	if err != nil {
+		return err
+	}
+	// A wrong master key is found here, not by the first caller to need a secret.
+	sealed, err := vault.Verify(ctx)
+	if err != nil {
+		return fmt.Errorf("the master key does not open the secret store: %w", err)
+	}
+	apiTokens := tokens.New(db.DB(), db, time.Now, []string{server.Role})
+	if n, err := activeTokens(ctx, apiTokens); err != nil {
+		return err
+	} else if n == 0 {
+		fmt.Fprintln(out, "no active API token: nobody can use the API until `control token issue` makes one")
+	}
 
 	handler := server.Handler(server.Config{
 		Service: &service.Service{Routing: table, Host: p.codeHost, Records: db, Funcs: logic.Impl{}},
 		Events:  broker,
-		Token:   apiToken,
+		Auth:    server.TokenAuth(apiTokens),
 	})
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
@@ -143,7 +165,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, out io.
 	}
 
 	if _, err := db.AddAudit(ctx, "control", "start", "control plane",
-		fmt.Sprintf("version %s; codehost=%s coder=%s reasoner=%s", version, cfg.Adapters.CodeHost, cfg.Adapters.Coder, cfg.Adapters.Reasoner)); err != nil {
+		fmt.Sprintf("version %s; codehost=%s coder=%s reasoner=%s; secrets=%d", version, cfg.Adapters.CodeHost, cfg.Adapters.Coder, cfg.Adapters.Reasoner, sealed)); err != nil {
 		ln.Close()
 		return err
 	}

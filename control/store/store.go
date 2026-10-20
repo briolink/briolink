@@ -63,6 +63,13 @@ func Open(ctx context.Context, path string, pub Publisher, now func() time.Time)
 	return s, nil
 }
 
+// DB is the open database, for the control plane's other stores (secrets,
+// tokens) that keep their tables in it.
+func (s *Store) DB() *sql.DB { return s.db }
+
+// Now is the store's clock.
+func (s *Store) Now() time.Time { return s.now() }
+
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
