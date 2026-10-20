@@ -49,7 +49,7 @@ Master asks the founder only for a decision, never to route work. A kind of work
 8. **Shared control (M13):** every setting a machine acts on is one a human can read and change in the same place; never create a decision only a machine can reach.
 9. **Spend tokens on judgement only (M11):** read only what your brief lists, search before reading whole files, let generators, checks and the coder do mechanical work; one session per piece of work.
 10. **No memory (M14):** a session starts from the repo, never from earlier conversations or a tool's memory features. Anything worth keeping is written before the session ends: design in the docs, work and its discussion in issues, changes and their evidence in pull requests (until the first code lands: docs and commits).
-11. **Work files stay in the repo (M14):** never a tool's scratchpad, `/tmp` or any folder outside the repo, even when the tool suggests one. A file worth keeping is committed; a throwaway one (a prototype, a copied fixture, a comment draft) goes in `.briolink/tmp/`, which is never committed, and `/briolink done` commits or deletes what is there.
+11. **Nothing is stored outside the repo (M14):** a tool's scratchpad or `/tmp` may hold work in progress, never its result. Whatever is worth keeping (a prototype, a measurement, a script, a draft) is saved to the repo before the session ends: committed, or on a branch, an issue or a pull request.
 12. **Reasons live in [docs/4-choices.md](../docs/4-choices.md)**, cited by ID (M methodology, A architecture, E execution). Don't argue a settled choice; propose a change to its row.
 
 ## Glossary
