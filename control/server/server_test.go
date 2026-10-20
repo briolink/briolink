@@ -61,7 +61,7 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 			Tiers: map[string]string{"coder": "c", "routine": "r", "top": "t"},
 			Jobs:  map[string]string{"pure_function": "coder"}, ProposePromotionBelowBp: 6000, OnTopLimit: "queue-design-jobs",
 		},
-		Host: host, Records: st, Funcs: logic.Impl{},
+		Host: host, Records: st, Credentials: vlt, Funcs: logic.Impl{},
 	}
 	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Tokens: vlt, Heartbeat: heartbeat}))
 	t.Cleanup(srv.Close)

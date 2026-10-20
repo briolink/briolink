@@ -166,7 +166,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	}
 
 	handler := server.Handler(server.Config{
-		Service: &service.Service{Routing: table, Host: p.codeHost, Records: db, Funcs: logic.Impl{}},
+		Service: &service.Service{Routing: table, Host: p.codeHost, Records: db, Credentials: vlt, Funcs: logic.Impl{}},
 		Events:  broker,
 		Tokens:  vlt,
 	})

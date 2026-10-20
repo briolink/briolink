@@ -93,3 +93,22 @@ type AuditEntry struct {
 	Subject string
 	Detail  string
 }
+
+// Credential never carries a secret's value or a token
+type Credential struct {
+	// secret or token
+	Kind string
+	Name string
+	// The role a token acts as; empty for a secret
+	Role string
+	// RFC 3339
+	CreatedAt string
+	// RFC 3339; empty for a token
+	RotatedAt string
+	// YYYY-MM-DD; empty if none
+	ExpiresOn string
+	// YYYY-MM-DD; empty if none
+	RemindOn string
+	// A token that no longer authenticates
+	Revoked bool
+}

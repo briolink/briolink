@@ -2,6 +2,7 @@ package logic
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/briolink/briolink/gen/domain/control"
@@ -73,5 +74,67 @@ func TestTaskFromIssue(t *testing.T) {
 				t.Errorf("got %+v, want %+v", got, want)
 			}
 		})
+	}
+}
+
+func TestCredentialsOfKind(t *testing.T) {
+	in := []control.Credential{{Kind: "token", Name: "b"}, {Kind: "secret", Name: "a"}, {Kind: "token", Name: "a"}}
+	before := append([]control.Credential(nil), in...)
+	if got := (Impl{}).CredentialsOfKind(in, "token"); !reflect.DeepEqual(got, []control.Credential{in[0], in[2]}) {
+		t.Errorf("tokens = %v", got)
+	}
+	if got := (Impl{}).CredentialsOfKind(in, "secret"); !reflect.DeepEqual(got, []control.Credential{in[1]}) {
+		t.Errorf("secrets = %v", got)
+	}
+	for _, got := range [][]control.Credential{(Impl{}).CredentialsOfKind(in, "other"), (Impl{}).CredentialsOfKind(nil, "token")} {
+		if got == nil || len(got) != 0 {
+			t.Errorf("none = %#v, want an empty list that is not nil", got)
+		}
+	}
+	if !reflect.DeepEqual(in, before) {
+		t.Errorf("argument changed: %v", in)
+	}
+}
+
+func TestCredentialProblem(t *testing.T) {
+	long := strings.Repeat("a", 101)
+	for name, tc := range map[string]struct {
+		name, expires, remind string
+		ok                    bool
+	}{
+		"name only":                 {"CF_API_TOKEN", "", "", true},
+		"one character":             {"a", "", "", true},
+		"a hundred characters":      {long[:100], "", "", true},
+		"a hundred and one":         {long, "", "", false},
+		"empty name":                {"", "", "", false},
+		"a space":                   {"a b", "", "", false},
+		"a control character":       {"a\tb", "", "", false},
+		"not ASCII":                 {"é", "", "", false},
+		"both dates":                {"a", "2027-10-17", "2027-09-17", true},
+		"the same day":              {"a", "2027-10-17", "2027-10-17", true},
+		"reminder alone":            {"a", "", "2027-09-17", true},
+		"expiry alone":              {"a", "2027-10-17", "", true},
+		"leap day":                  {"a", "2028-02-29", "", true},
+		"no such leap day":          {"a", "2027-02-29", "", false},
+		"month 13":                  {"a", "2027-13-01", "", false},
+		"not a date":                {"a", "soon", "", false},
+		"no zero padding":           {"a", "2027-1-7", "", false},
+		"bad reminder":              {"a", "", "2027-02-30", false},
+		"reminder after the expiry": {"a", "2027-09-17", "2027-10-17", false},
+	} {
+		got := (Impl{}).CredentialProblem(tc.name, tc.expires, tc.remind)
+		if (got == "") != tc.ok {
+			t.Errorf("%s: problem = %q, want ok = %v", name, got, tc.ok)
+		}
+		for _, secret := range []string{tc.name, tc.expires, tc.remind} {
+			if len(secret) > 3 && strings.Contains(got, secret) {
+				t.Errorf("%s: the sentence repeats %q: %q", name, secret, got)
+			}
+		}
+	}
+	// The first problem wins, in the order name, expiry, reminder.
+	first := (Impl{}).CredentialProblem("", "x", "y")
+	if second := (Impl{}).CredentialProblem("a", "x", "y"); first == second || second == (Impl{}).CredentialProblem("a", "2027-01-01", "y") {
+		t.Errorf("problems are not told apart: %q / %q", first, second)
 	}
 }

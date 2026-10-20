@@ -154,6 +154,8 @@ func TestShop_GeneratedTestsCatchBrokenHandlers(t *testing.T) {
 		{"role not checked", "http/routes.go", "if got != role {", "if got != role && false {"},
 		{"no authentication needed", "http/routes.go", "if !ok {", "if !ok && false {"},
 		{"not found is a 500", "http/routes.go", "case errors.Is(err, ErrNotFound):", "case errors.Is(err, ErrNotFound) && false:"},
+		{"conflict is a 500", "http/routes.go", "errors.Is(err, ErrConflict)", "errors.Is(err, ErrConflict) && false"},
+		{"unprocessable is a 500", "http/routes.go", "errors.Is(err, ErrUnprocessable)", "errors.Is(err, ErrUnprocessable) && false"},
 		{"errors leak", "http/routes.go", `writeProblem(w, http.StatusInternalServerError, "internal error", nil)`, `writeProblem(w, http.StatusInternalServerError, err.Error(), nil)`},
 		{"unknown body field accepted", "http/runtime.go", "dec.DisallowUnknownFields()", ""},
 		{"content type unchecked", "http/runtime.go", `err != nil || mt != "application/json"`, `false && (err != nil || mt != "application/json")`},

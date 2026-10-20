@@ -502,6 +502,8 @@ func TestServiceErrors(t *testing.T) {
 	}{
 		{"not found", ErrNotFound, http.StatusNotFound},
 		{"wrapped not found", fmt.Errorf("loading: %w", ErrNotFound), http.StatusNotFound},
+		{"conflict", fmt.Errorf("storing: %w", ErrConflict), http.StatusConflict},
+		{"unprocessable", fmt.Errorf("checking: %w", ErrUnprocessable), http.StatusUnprocessableEntity},
 		{"acme forbidden", acme.ErrForbidden, http.StatusConflict},
 		{"acme no transition", fmt.Errorf("step: %w", acme.ErrNoTransition), http.StatusConflict},
 		{"acme invariant", &acme.InvariantError{Entity: "E", Invariant: "i"}, http.StatusUnprocessableEntity},

@@ -6,6 +6,7 @@ package logic
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/briolink/briolink/gen/domain/control"
 )
@@ -70,4 +71,34 @@ func (Impl) TaskFromIssue(number int64, title string, labels []string, milestone
 		t.State = control.TaskStateConflict
 	}
 	return t
+}
+
+func (Impl) CredentialsOfKind(credentials []control.Credential, kind string) []control.Credential {
+	out := []control.Credential{}
+	for _, c := range credentials {
+		if c.Kind == kind {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+const dateLayout = "2006-01-02"
+
+func (Impl) CredentialProblem(name, expiresOn, remindOn string) string {
+	if len(name) == 0 || len(name) > 100 || strings.IndexFunc(name, func(r rune) bool { return r < 0x21 || r > 0x7e }) >= 0 {
+		return "the name must be 1 to 100 printable characters, without spaces"
+	}
+	expires, err := time.Parse(dateLayout, expiresOn)
+	if expiresOn != "" && (err != nil || expires.Format(dateLayout) != expiresOn) {
+		return "the expiry must be a date written YYYY-MM-DD"
+	}
+	remind, err := time.Parse(dateLayout, remindOn)
+	if remindOn != "" && (err != nil || remind.Format(dateLayout) != remindOn) {
+		return "the reminder must be a date written YYYY-MM-DD"
+	}
+	if expiresOn != "" && remindOn != "" && remindOn > expiresOn {
+		return "the reminder must not be after the expiry"
+	}
+	return ""
 }

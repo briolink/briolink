@@ -46,9 +46,11 @@ Requests and responses use the domain package's types.
   wrong `Content-Type` (415) or a body over 1 MiB (413) is refused. Domain
   enums are checked against their values. Go's JSON decoder matches key
   names case-insensitively; this plugin does not change that.
-- **Errors from `Service`:** `ErrNotFound` is a 404; the domain package's
-  `ErrForbidden` and `ErrNoTransition` a 409, `InvariantError` a 422; any
-  other error a 500 that does not repeat its text.
+- **Errors from `Service`:** `ErrNotFound` is a 404; `ErrConflict` a 409 and
+  `ErrUnprocessable` a 422, for a request that clashes with the current state
+  or that a rule outside the spec refuses; the domain package's `ErrForbidden`
+  and `ErrNoTransition` a 409, `InvariantError` a 422; any other error a 500
+  that does not repeat its text. The answer never repeats an error's text.
 
 The mux's own 404 and 405 answers are plain text, not problem details.
 

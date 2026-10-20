@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/control/events"
+	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/store"
 	"github.com/briolink/briolink/control/vault"
 )
@@ -352,5 +353,34 @@ func TestSurvivesReopen(t *testing.T) {
 	}
 	if _, _, err := v.Authenticate(ctx, tok, "GET /x"); err != nil {
 		t.Error(err)
+	}
+}
+
+// The store enforces what the credential routes check first with the pure
+// function credential_problem: the two must agree on a name and dates.
+func TestVaultAgreesWithCredentialProblem(t *testing.T) {
+	r := open(t)
+	long := strings.Repeat("a", 101)
+	i := 0
+	for _, tc := range []struct{ name, expires, remind string }{
+		{"CF_API_TOKEN", "", ""}, {"a", "", ""}, {long[:100], "", ""}, {long, "", ""}, {"", "", ""}, {"a b", "", ""}, {"a\tb", "", ""}, {"é", "", ""},
+		{"a", "2027-10-17", "2027-09-17"}, {"a", "2027-10-17", "2027-10-17"}, {"a", "", "2027-09-17"}, {"a", "2028-02-29", ""},
+		{"a", "2027-02-29", ""}, {"a", "2027-13-01", ""}, {"a", "soon", ""}, {"a", "2027-1-7", ""}, {"a", "", "2027-02-30"}, {"a", "2027-09-17", "2027-10-17"},
+	} {
+		i++
+		name := tc.name
+		if name != "" && len(name) <= 100 { // a fresh name each time, so only the rules can refuse
+			name = strings.Repeat("n", i) + name
+			name = name[:min(len(name), 100)]
+		}
+		want := (logic.Impl{}).CredentialProblem(name, tc.expires, tc.remind) == ""
+		err := r.v.Put(ctx, "test", name, []byte("v"), vault.Dates{ExpiresOn: tc.expires, RemindOn: tc.remind})
+		if got := err == nil; got != want {
+			t.Errorf("%+v: the vault accepts = %v (%v), credential_problem accepts = %v", tc, got, err, want)
+		}
+		_, tokenErr := r.v.CreateToken(ctx, "test", name, "operator", vault.Dates{ExpiresOn: tc.expires, RemindOn: tc.remind})
+		if got := tokenErr == nil; got != want {
+			t.Errorf("%+v: the vault issues = %v (%v), credential_problem accepts = %v", tc, got, tokenErr, want)
+		}
 	}
 }

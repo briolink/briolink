@@ -70,6 +70,84 @@ func encodeControlAuditEntry(v control.AuditEntry) wireControlAuditEntry {
 	return out
 }
 
+// wireControlCredential is the JSON shape of control.Credential.
+type wireControlCredential struct {
+	Kind      *string `json:"kind"`
+	Name      *string `json:"name"`
+	Role      *string `json:"role"`
+	CreatedAt *string `json:"created_at"`
+	RotatedAt *string `json:"rotated_at"`
+	ExpiresOn *string `json:"expires_on"`
+	RemindOn  *string `json:"remind_on"`
+	Revoked   *bool   `json:"revoked"`
+}
+
+func decodeControlCredential(w wireControlCredential, at string, p *problems) control.Credential {
+	var out control.Credential
+	if w.Kind == nil {
+		p.add(join(at, "kind"), "is required")
+	} else {
+		v := keep[string](*w.Kind, join(at, "kind"), p)
+		out.Kind = v
+	}
+	if w.Name == nil {
+		p.add(join(at, "name"), "is required")
+	} else {
+		v := keep[string](*w.Name, join(at, "name"), p)
+		out.Name = v
+	}
+	if w.Role == nil {
+		p.add(join(at, "role"), "is required")
+	} else {
+		v := keep[string](*w.Role, join(at, "role"), p)
+		out.Role = v
+	}
+	if w.CreatedAt == nil {
+		p.add(join(at, "created_at"), "is required")
+	} else {
+		v := keep[string](*w.CreatedAt, join(at, "created_at"), p)
+		out.CreatedAt = v
+	}
+	if w.RotatedAt == nil {
+		p.add(join(at, "rotated_at"), "is required")
+	} else {
+		v := keep[string](*w.RotatedAt, join(at, "rotated_at"), p)
+		out.RotatedAt = v
+	}
+	if w.ExpiresOn == nil {
+		p.add(join(at, "expires_on"), "is required")
+	} else {
+		v := keep[string](*w.ExpiresOn, join(at, "expires_on"), p)
+		out.ExpiresOn = v
+	}
+	if w.RemindOn == nil {
+		p.add(join(at, "remind_on"), "is required")
+	} else {
+		v := keep[string](*w.RemindOn, join(at, "remind_on"), p)
+		out.RemindOn = v
+	}
+	if w.Revoked == nil {
+		p.add(join(at, "revoked"), "is required")
+	} else {
+		v := keep[bool](*w.Revoked, join(at, "revoked"), p)
+		out.Revoked = v
+	}
+	return out
+}
+
+func encodeControlCredential(v control.Credential) wireControlCredential {
+	var out wireControlCredential
+	out.Kind = ptr(same[string](v.Kind))
+	out.Name = ptr(same[string](v.Name))
+	out.Role = ptr(same[string](v.Role))
+	out.CreatedAt = ptr(same[string](v.CreatedAt))
+	out.RotatedAt = ptr(same[string](v.RotatedAt))
+	out.ExpiresOn = ptr(same[string](v.ExpiresOn))
+	out.RemindOn = ptr(same[string](v.RemindOn))
+	out.Revoked = ptr(same[bool](v.Revoked))
+	return out
+}
+
 // wireControlJobTier is the JSON shape of control.JobTier.
 type wireControlJobTier struct {
 	Job  *string `json:"job"`
