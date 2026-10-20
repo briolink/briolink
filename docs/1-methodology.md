@@ -71,9 +71,9 @@ The model is the source; code follows from it.
 ### 4. Test-driven development: the proof
 
 Tests exist before the code they test.
-- **Derived from statecharts** (by generators): each allowed transition reaches its target; each forbidden pair is rejected; each guard is tested at its boundaries.
-- **Written by the reasoner:** the business values at those boundaries, the rules of each pure function, and examples a machine can't derive.
-- **Mutation check:** operators, boundaries and constants in each pure function are flipped and the tests rerun. Every mutant must be caught; a survivor means a missing test, which goes back to the reasoner.
+- **Derived from statecharts** (by generators): each allowed transition reaches its target and returns the expected entity; each forbidden pair is rejected; each guard is tested at its boundaries; each invariant is false just outside its boundaries.
+- **Written by the reasoner:** the business values at those boundaries, both sides of each; for a boundary computed from several fields (a balance is the total minus what was paid), each field varied; the entity each transition must return; the values that break each invariant, one invariant at a time; examples for every pure function outside a statechart, and examples a machine can't derive.
+- **Mutation check:** operators, boundaries and constants in each pure function are flipped, and its statements deleted one at a time, and the tests rerun. Every mutant must be caught; a survivor means a missing test, which goes back to the reasoner.
 
 ## Specification gate
 
