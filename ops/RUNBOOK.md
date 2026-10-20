@@ -67,6 +67,8 @@ Design in [3-hosting.md](../docs/3-hosting.md#client-exit-a24). The control plan
 
 Until the control center shows credentials with their expiry (P3, [2-architecture](../docs/2-architecture.md#control-plane)), expiring credentials are listed here. Names only, never values; rotate by editing the `.env` line, then the check named.
 
+The control plane's secret store ([#58](https://github.com/briolink/briolink/issues/58), [control/](../control/README.md#secrets-and-tokens)) can now hold these with their dates (`control secret put NAME -expires D -remind D`, values from standard input). This register stays the source until the founder has seeded the store and the services that read `.env` read it from there; then retire the register.
+
 | Credential (`.env`, permanent) | Scope | Expires | Remind | Rotate, then check |
 | --- | --- | --- | --- | --- |
 | `MIRROR_GH_TOKEN` | fine-grained, org `briolink`, Contents + Issues + Metadata read | 2027-10-17 *(1 year from creation, confirm on the token's page)* | 2027-09-17 | `sudo systemctl start briolink-mirror briolink-export`, then `systemctl status` |

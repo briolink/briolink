@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
@@ -26,6 +27,7 @@ import (
 	"github.com/briolink/briolink/control/server"
 	"github.com/briolink/briolink/control/service"
 	"github.com/briolink/briolink/control/store"
+	"github.com/briolink/briolink/control/vault"
 	"github.com/briolink/briolink/port/codehost"
 	"github.com/briolink/briolink/port/coder"
 	"github.com/briolink/briolink/port/reasoner"
@@ -37,7 +39,7 @@ var version = "dev"
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, os.Args[1:], os.Getenv, os.Stdout, nil); err != nil {
+	if err := run(ctx, os.Args[1:], os.Getenv, os.Stdin, os.Stdout, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "control:", err)
 		os.Exit(1)
 	}
@@ -85,9 +87,36 @@ func wire(a operator.Adapters) (ports, error) {
 	return p, err
 }
 
-// run serves until ctx ends. ready, when not nil, is called with the address
+// loadKey reads the master key from the systemd credential of that name. A
+// file other users can read is refused: the key is root-only (A20).
+func loadKey(getenv func(string) string, credential string) ([]byte, error) {
+	dir := getenv("CREDENTIALS_DIRECTORY")
+	if dir == "" {
+		return nil, fmt.Errorf("CREDENTIALS_DIRECTORY is not set: the master key (%s) comes from a systemd credential", credential)
+	}
+	path := filepath.Join(dir, credential)
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("master key: %w", err)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("master key %s is readable by other users (mode %v): it must be root-only", path, info.Mode().Perm())
+	}
+	text, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("master key: %w", err)
+	}
+	key, err := vault.ParseKey(text)
+	if err != nil {
+		return nil, fmt.Errorf("master key %s: %w", path, err)
+	}
+	return key, nil
+}
+
+// run serves until ctx ends, or, given a command (secret, token,
+// credentials), runs it and returns. ready, when not nil, is called with the address
 // the server listens on once it accepts connections.
-func run(ctx context.Context, args []string, getenv func(string) string, out io.Writer, ready func(addr string)) error {
+func run(ctx context.Context, args []string, getenv func(string) string, in io.Reader, out io.Writer, ready func(addr string)) error {
 	fs := flag.NewFlagSet("control", flag.ContinueOnError)
 	configPath := fs.String("config", "operator.json", "the installation's operator config")
 	showVersion := fs.Bool("version", false, "print the version and exit")
@@ -107,13 +136,15 @@ func run(ctx context.Context, args []string, getenv func(string) string, out io.
 	if err != nil {
 		return err
 	}
-	apiToken := getenv(cfg.TokenEnv)
-	if apiToken == "" {
-		return fmt.Errorf("the environment variable %s (token_env) is empty: the API would accept nobody", cfg.TokenEnv)
-	}
-	p, err := wire(cfg.Adapters)
+	key, err := loadKey(getenv, cfg.MasterKeyCredential)
 	if err != nil {
 		return err
+	}
+	command := fs.Args()
+	if len(command) == 0 {
+		if _, err = wire(cfg.Adapters); err != nil {
+			return err
+		}
 	}
 
 	broker := events.New()
@@ -122,11 +153,22 @@ func run(ctx context.Context, args []string, getenv func(string) string, out io.
 		return err
 	}
 	defer db.Close()
+	vlt, err := vault.New(db.DB(), key, db, []string{server.Role}, time.Now)
+	if err != nil {
+		return err
+	}
+	if len(command) > 0 {
+		return admin(ctx, vlt, command, in, out)
+	}
+	p, err := wire(cfg.Adapters)
+	if err != nil {
+		return err
+	}
 
 	handler := server.Handler(server.Config{
 		Service: &service.Service{Routing: table, Host: p.codeHost, Records: db, Funcs: logic.Impl{}},
 		Events:  broker,
-		Token:   apiToken,
+		Tokens:  vlt,
 	})
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/gen/domain/control"
+	"github.com/briolink/briolink/migrations"
 )
 
 var t0 = time.Date(2026, 10, 17, 9, 30, 0, 123456789, time.UTC)
@@ -151,9 +153,10 @@ func TestReopenKeepsDataAndAppliesMigrationsOnce(t *testing.T) {
 	if got, err := s2.ListAudit(ctx, 5); err != nil || len(got) != 1 {
 		t.Fatalf("after reopen: %+v, %v", got, err)
 	}
+	files, _ := fs.Glob(migrations.FS, "*.sql")
 	var n int
-	if err := s2.db.QueryRowContext(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&n); err != nil || n != 1 {
-		t.Errorf("migrations recorded = %d, %v", n, err)
+	if err := s2.db.QueryRowContext(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&n); err != nil || n != len(files) {
+		t.Errorf("migrations recorded = %d of %d, %v", n, len(files), err)
 	}
 }
 

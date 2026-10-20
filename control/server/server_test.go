@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -18,13 +19,14 @@ import (
 	"github.com/briolink/briolink/control/server"
 	"github.com/briolink/briolink/control/service"
 	"github.com/briolink/briolink/control/store"
+	"github.com/briolink/briolink/control/vault"
 	"github.com/briolink/briolink/gen/domain/control"
 	"github.com/briolink/briolink/port/codehost"
 )
 
-const token = "s3cret-token"
-
 type rig struct {
+	token  string // a live token acting as the operator role
+	vault  *vault.Vault
 	url    string
 	store  *store.Store
 	broker *events.Broker
@@ -42,6 +44,14 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
+	vlt, err := vault.New(st.DB(), bytes.Repeat([]byte{7}, 32), st, []string{server.Role, "viewer"}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := vlt.CreateToken(ctx, "test", "rig", server.Role, vault.Dates{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	host := codehost.NewFake()
 	if _, err := host.CreateIssue(ctx, codehost.NewIssue{Title: "First task", Labels: []string{"state:queued", "risk:low", "kind:infra"}}); err != nil {
 		t.Fatal(err)
@@ -53,9 +63,9 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 		},
 		Host: host, Records: st, Funcs: logic.Impl{},
 	}
-	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Token: token, Heartbeat: heartbeat}))
+	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Tokens: vlt, Heartbeat: heartbeat}))
 	t.Cleanup(srv.Close)
-	return rig{srv.URL, st, broker, host}
+	return rig{token, vlt, srv.URL, st, broker, host}
 }
 
 func (r rig) get(t *testing.T, path, bearer string) (int, http.Header, map[string]any) {
@@ -80,7 +90,7 @@ func (r rig) get(t *testing.T, path, bearer string) (int, http.Header, map[strin
 func TestEveryEndpointNeedsTheToken(t *testing.T) {
 	r := newRig(t, 0)
 	for _, path := range []string{"/api/v1/routing", "/api/v1/tasks", "/api/v1/tasks/1", "/api/v1/runs", "/api/v1/audit", "/api/v1/events"} {
-		for name, bearer := range map[string]string{"none": "", "wrong": "nope", "prefix": token[:5], "longer": token + "x"} {
+		for name, bearer := range map[string]string{"none": "", "wrong": "nope", "prefix": r.token[:5], "longer": r.token + "x"} {
 			status, hdr, body := r.get(t, path, bearer)
 			if status != 401 || body["status"] != float64(401) {
 				t.Errorf("%s with %s token: %d %v", path, name, status, body)
@@ -92,7 +102,7 @@ func TestEveryEndpointNeedsTheToken(t *testing.T) {
 	}
 	// A different scheme is not a bearer token.
 	req, _ := http.NewRequest("GET", r.url+"/api/v1/routing", nil)
-	req.Header.Set("Authorization", "Basic "+token)
+	req.Header.Set("Authorization", "Basic "+r.token)
 	resp, _ := http.DefaultClient.Do(req)
 	resp.Body.Close()
 	if resp.StatusCode != 401 {
@@ -100,20 +110,64 @@ func TestEveryEndpointNeedsTheToken(t *testing.T) {
 	}
 }
 
-func TestNoConfiguredTokenAuthenticatesNobody(t *testing.T) {
-	auth := server.BearerAuth("")
-	for _, h := range []string{"", "Bearer ", "Bearer x"} {
-		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Authorization", h)
-		if _, ok := auth(req); ok {
-			t.Errorf("header %q authenticated against an empty token", h)
+func TestOtherRoleRevokedAndExpiredTokens(t *testing.T) {
+	r := newRig(t, 0)
+	ctx := context.Background()
+	viewer, err := r.vault.CreateToken(ctx, "test", "viewer-tok", "viewer", vault.Dates{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := r.vault.CreateToken(ctx, "test", "old-tok", server.Role, vault.Dates{ExpiresOn: "2026-10-16"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, err := r.vault.CreateToken(ctx, "test", "gone-tok", server.Role, vault.Dates{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.vault.RevokeToken(ctx, "test", "gone-tok"); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/api/v1/routing", "/api/v1/events"} {
+		for name, tc := range map[string]struct {
+			bearer string
+			want   int
+		}{"another role": {viewer, 403}, "expired": {old, 401}, "revoked": {gone, 401}, "live": {r.token, 200}} {
+			if name == "live" && path == "/api/v1/events" {
+				continue // would open a stream
+			}
+			if status, _, _ := r.get(t, path, tc.bearer); status != tc.want {
+				t.Errorf("%s with a token that is %s: %d, want %d", path, name, status, tc.want)
+			}
 		}
+	}
+}
+
+func TestEveryUseOfATokenIsAudited(t *testing.T) {
+	r := newRig(t, 0)
+	r.get(t, "/api/v1/routing?secret=1", r.token)
+	r.get(t, "/api/v1/routing", "blk_unknown")
+	log, err := r.store.ListAudit(context.Background(), 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var uses []string
+	for _, e := range log {
+		if e.Action == "token.use" {
+			uses = append(uses, e.Actor+" "+e.Subject)
+		}
+		if strings.Contains(e.Detail+e.Subject+e.Actor, r.token) || strings.Contains(e.Detail+e.Subject, "secret=1") {
+			t.Errorf("audit entry leaks: %+v", e)
+		}
+	}
+	if len(uses) != 1 || uses[0] != "token:rig GET /api/v1/routing" {
+		t.Errorf("uses = %q (an unknown token must leave no line)", uses)
 	}
 }
 
 func TestRoutingAndTasks(t *testing.T) {
 	r := newRig(t, 0)
-	status, hdr, body := r.get(t, "/api/v1/routing", token)
+	status, hdr, body := r.get(t, "/api/v1/routing", r.token)
 	routing, _ := body["routing"].(map[string]any)
 	if status != 200 || routing["propose_promotion_below_bp"] != float64(6000) || routing["on_top_limit"] != "queue-design-jobs" {
 		t.Fatalf("routing: %d %v", status, body)
@@ -125,7 +179,7 @@ func TestRoutingAndTasks(t *testing.T) {
 		t.Errorf("tiers = %v", routing["tiers"])
 	}
 
-	status, _, body = r.get(t, "/api/v1/tasks", token)
+	status, _, body = r.get(t, "/api/v1/tasks", r.token)
 	tasks, _ := body["tasks"].([]any)
 	if status != 200 || len(tasks) != 1 {
 		t.Fatalf("tasks: %d %v", status, body)
@@ -134,22 +188,22 @@ func TestRoutingAndTasks(t *testing.T) {
 	if task["number"] != float64(1) || task["state"] != "queued" || task["risk"] != "low" || task["kind"] != "infra" || task["milestone"] != "" {
 		t.Errorf("task = %v", task)
 	}
-	if status, _, body := r.get(t, "/api/v1/tasks?state=blocked", token); status != 200 || len(body["tasks"].([]any)) != 0 {
+	if status, _, body := r.get(t, "/api/v1/tasks?state=blocked", r.token); status != 200 || len(body["tasks"].([]any)) != 0 {
 		t.Errorf("filter: %d %v", status, body)
 	}
-	if status, _, body := r.get(t, "/api/v1/tasks/1", token); status != 200 || body["task"].(map[string]any)["title"] != "First task" {
+	if status, _, body := r.get(t, "/api/v1/tasks/1", r.token); status != 200 || body["task"].(map[string]any)["title"] != "First task" {
 		t.Errorf("one task: %d %v", status, body)
 	}
-	if status, _, _ := r.get(t, "/api/v1/tasks/99", token); status != 404 {
+	if status, _, _ := r.get(t, "/api/v1/tasks/99", r.token); status != 404 {
 		t.Errorf("missing task: %d", status)
 	}
-	if status, _, _ := r.get(t, "/api/v1/tasks/0", token); status != 400 {
+	if status, _, _ := r.get(t, "/api/v1/tasks/0", r.token); status != 400 {
 		t.Errorf("task 0: %d", status)
 	}
-	if status, _, _ := r.get(t, "/api/v1/tasks?limit=0", token); status != 400 {
+	if status, _, _ := r.get(t, "/api/v1/tasks?limit=0", r.token); status != 400 {
 		t.Errorf("limit 0: %d", status)
 	}
-	if status, _, _ := r.get(t, "/api/v1/tasks?bogus=1", token); status != 400 {
+	if status, _, _ := r.get(t, "/api/v1/tasks?bogus=1", r.token); status != 400 {
 		t.Errorf("unknown query parameter: %d", status)
 	}
 }
@@ -166,7 +220,7 @@ func TestRunsAndAudit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, body := r.get(t, "/api/v1/runs", token)
+	_, _, body := r.get(t, "/api/v1/runs", r.token)
 	runs := body["runs"].([]any)
 	if len(runs) != 3 || runs[0].(map[string]any)["id"] != float64(3) {
 		t.Fatalf("runs = %v", runs)
@@ -175,18 +229,22 @@ func TestRunsAndAudit(t *testing.T) {
 	if run["started_at"] != "2026-10-17T12:00:00Z" || run["outcome"] != "passed" || run["job"] != "pure_function" {
 		t.Errorf("run = %v", run)
 	}
-	if _, _, body := r.get(t, "/api/v1/runs?task=1", token); len(body["runs"].([]any)) != 2 {
+	if _, _, body := r.get(t, "/api/v1/runs?task=1", r.token); len(body["runs"].([]any)) != 2 {
 		t.Errorf("runs of task 1 = %v", body)
 	}
-	if _, _, body := r.get(t, "/api/v1/runs?limit=1", token); len(body["runs"].([]any)) != 1 {
+	if _, _, body := r.get(t, "/api/v1/runs?limit=1", r.token); len(body["runs"].([]any)) != 1 {
 		t.Errorf("runs limit 1 = %v", body)
 	}
-	if _, _, body := r.get(t, "/api/v1/runs?task=9", token); body["runs"] == nil || len(body["runs"].([]any)) != 0 {
+	if _, _, body := r.get(t, "/api/v1/runs?task=9", r.token); body["runs"] == nil || len(body["runs"].([]any)) != 0 {
 		t.Errorf("no runs must be [] not null: %v", body)
 	}
-	_, _, body = r.get(t, "/api/v1/audit", token)
+	_, _, body = r.get(t, "/api/v1/audit", r.token)
 	entries := body["entries"].([]any)
-	if len(entries) != 1 || entries[0].(map[string]any)["action"] != "start" {
+	actions := map[string]bool{}
+	for _, e := range entries {
+		actions[e.(map[string]any)["action"].(string)] = true
+	}
+	if newest := entries[0].(map[string]any); !actions["start"] || !actions["token.create"] || newest["action"] != "token.use" || newest["subject"] != "GET /api/v1/audit" {
 		t.Errorf("audit = %v", body)
 	}
 }
@@ -197,7 +255,7 @@ func openStream(t *testing.T, r rig, lastID string) (*http.Response, <-chan stri
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	req, _ := http.NewRequestWithContext(ctx, "GET", r.url+"/api/v1/events", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+r.token)
 	if lastID != "" {
 		req.Header.Set("Last-Event-ID", lastID)
 	}
@@ -250,7 +308,8 @@ func TestEventStreamDeliversWrites(t *testing.T) {
 	if _, err := r.store.AddAudit(context.Background(), "control", "start", "plane", ""); err != nil {
 		t.Fatal(err)
 	}
-	if l := next(t, lines); l != "id: 2" {
+	// 1 is the rig's token, 2 the earlier line, 3 this stream's own token use.
+	if l := next(t, lines); l != "id: 4" {
 		t.Errorf("line = %q", l)
 	}
 	if l := next(t, lines); l != "event: audit" {
@@ -276,16 +335,16 @@ func TestEventStreamResumesAfterLastEventID(t *testing.T) {
 	r.store.AddAudit(ctx, "a", "two", "", "")
 	r.store.AddRun(ctx, store.NewRun{Task: 1, Tier: "t", Job: "j", Model: "m", Outcome: control.RunOutcomeRunning})
 
-	_, lines := openStream(t, r, "1")
+	_, lines := openStream(t, r, "2")
 	next(t, lines)
 	next(t, lines)
 	got := []string{next(t, lines), next(t, lines)}
-	if got[0] != "id: 2" || got[1] != "event: audit" {
+	if got[0] != "id: 3" || got[1] != "event: audit" {
 		t.Errorf("first replayed = %v", got)
 	}
 	next(t, lines)
 	next(t, lines)
-	if l := next(t, lines); l != "id: 3" {
+	if l := next(t, lines); l != "id: 4" {
 		t.Errorf("second replayed = %q", l)
 	}
 	if l := next(t, lines); l != "event: run" {
@@ -297,7 +356,7 @@ func TestEventStreamRefusesABadLastEventID(t *testing.T) {
 	r := newRig(t, 0)
 	for _, id := range []string{"abc", "-1", "1.5"} {
 		req, _ := http.NewRequest("GET", r.url+"/api/v1/events", nil)
-		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Authorization", "Bearer "+r.token)
 		req.Header.Set("Last-Event-ID", id)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {

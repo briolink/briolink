@@ -5,8 +5,7 @@
 package server
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,17 +17,23 @@ import (
 	api "github.com/briolink/briolink/gen/http"
 )
 
-// Role is the one role the control plane's routes know; the secret store
-// (#58) brings real accounts.
+// Role is the role the control plane's routes are made for (the spec's one
+// role). A token acting as another role is let through authentication and
+// refused with a 403.
 const Role = "operator"
+
+// Tokens checks a presented API token: the role it acts as, or an error when
+// it is unknown, expired, revoked or its use could not be recorded. use is
+// "METHOD /path", for the audit log. *vault.Vault is one.
+type Tokens interface {
+	Authenticate(ctx context.Context, token, use string) (role, name string, err error)
+}
 
 // Config is what the handler needs.
 type Config struct {
 	Service api.Service
 	Events  *events.Broker
-	// Token is the bearer token that authenticates as Role. Empty means no
-	// request authenticates.
-	Token string
+	Tokens  Tokens
 	// Heartbeat is how often an idle event stream writes a comment line, so a
 	// dead connection is noticed and proxies keep it open. Zero is 15 s.
 	Heartbeat time.Duration
@@ -39,7 +44,7 @@ func Handler(c Config) http.Handler {
 	if c.Heartbeat <= 0 {
 		c.Heartbeat = 15 * time.Second
 	}
-	auth := BearerAuth(c.Token)
+	auth := BearerAuth(c.Tokens)
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/v1/events", noStore(authorised(auth, http.HandlerFunc(c.stream))))
 	mux.Handle("/", noStore(api.Handler(c.Service, auth)))
@@ -47,22 +52,19 @@ func Handler(c Config) http.Handler {
 }
 
 // BearerAuth authenticates a request carrying "Authorization: Bearer <token>"
-// as Role. The comparison takes the same time whatever the token's length.
-func BearerAuth(token string) api.Auth {
-	want := sha256.Sum256([]byte(token))
+// as the role the token acts as. Each use is recorded by tokens under
+// "METHOD /path" (the query is left out: it is the caller's, not ours).
+func BearerAuth(tokens Tokens) api.Auth {
 	return func(r *http.Request) (string, bool) {
-		if token == "" {
-			return "", false
-		}
 		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok {
+		if !ok || got == "" {
 			return "", false
 		}
-		sum := sha256.Sum256([]byte(got))
-		if subtle.ConstantTimeCompare(sum[:], want[:]) != 1 {
+		role, _, err := tokens.Authenticate(r.Context(), got, r.Method+" "+r.URL.Path)
+		if err != nil {
 			return "", false
 		}
-		return Role, true
+		return role, true
 	}
 }
 

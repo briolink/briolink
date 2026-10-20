@@ -24,7 +24,7 @@ func TestVersionDefault(t *testing.T) {
 
 func TestVersionFlag(t *testing.T) {
 	var out bytes.Buffer
-	if err := run(context.Background(), []string{"-version"}, nil, &out, nil); err != nil {
+	if err := run(context.Background(), []string{"-version"}, nil, nil, &out, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := out.String(); got != "briolink control "+version+"\n" {
@@ -45,7 +45,7 @@ func operatorJSON(t *testing.T, mod func(string) string) (path, dbPath string) {
 	dbPath = filepath.Join(dir, "control.db")
 	cfg, _ := json.Marshal(map[string]any{
 		"format": "v0", "listen": "@LISTEN@", "tls": nil, "database": dbPath,
-		"routing_file": routingPath, "token_env": "CONTROL_TEST_TOKEN",
+		"routing_file": routingPath, "master_key_credential": "master-key",
 		"adapters": map[string]string{"codehost": "fake", "coder": "fake", "reasoner": "fake"},
 	})
 	path = filepath.Join(dir, "operator.json")
@@ -57,15 +57,45 @@ func operatorJSON(t *testing.T, mod func(string) string) (path, dbPath string) {
 
 func env(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 
+const goodKey = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+
+// credentials writes the master key as a systemd credential with the given
+// mode and returns the environment that points at it.
+func credentials(t *testing.T, key string, mode os.FileMode) map[string]string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "master-key"), []byte(key), mode); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(dir, "master-key"), mode); err != nil {
+		t.Fatal(err)
+	}
+	return map[string]string{"CREDENTIALS_DIRECTORY": dir}
+}
+
+// command runs an admin command against a config and returns what it printed.
+func command(t *testing.T, cfg string, e map[string]string, stdin string, args ...string) (string, error) {
+	t.Helper()
+	var out bytes.Buffer
+	err := run(context.Background(), append([]string{"-config", cfg}, args...), env(e), strings.NewReader(stdin), &out, nil)
+	return out.String(), err
+}
+
 func TestStartsOnFakesServesAndStops(t *testing.T) {
 	cfg, dbPath := operatorJSON(t, func(s string) string { return s })
+	creds := credentials(t, goodKey+"\n", 0o400)
+	tok, err := command(t, cfg, creds, "", "token", "create", "test", "-expires", "2027-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok = strings.TrimSpace(tok)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	addr := make(chan string, 1)
 	done := make(chan error, 1)
 	var out bytes.Buffer
 	go func() {
-		done <- run(ctx, []string{"-config", cfg}, env(map[string]string{"CONTROL_TEST_TOKEN": "tok"}), &out, func(a string) { addr <- a })
+		done <- run(ctx, []string{"-config", cfg}, env(creds), nil, &out, func(a string) { addr <- a })
 	}()
 	var base string
 	select {
@@ -94,17 +124,24 @@ func TestStartsOnFakesServesAndStops(t *testing.T) {
 	if status, _ := get("/api/v1/routing", ""); status != 401 {
 		t.Errorf("without a token: %d", status)
 	}
-	status, body := get("/api/v1/routing", "tok")
+	if status, _ := get("/api/v1/routing", "blk_nope"); status != 401 {
+		t.Errorf("with an unknown token: %d", status)
+	}
+	status, body := get("/api/v1/routing", tok)
 	if status != 200 || body["routing"].(map[string]any)["on_top_limit"] != "queue-design-jobs" {
 		t.Errorf("routing: %d %v", status, body)
 	}
-	status, body = get("/api/v1/audit", "tok")
+	status, body = get("/api/v1/audit", tok)
 	entries, _ := body["entries"].([]any)
-	if status != 200 || len(entries) != 1 {
+	if status != 200 || len(entries) != 4 {
 		t.Fatalf("audit: %d %v", status, body)
 	}
-	if e := entries[0].(map[string]any); e["action"] != "start" || !strings.Contains(e["detail"].(string), "codehost=fake") {
+	// newest first: this call, the routing call, start, token.create (the stranger left no line)
+	if e := entries[2].(map[string]any); e["action"] != "start" || !strings.Contains(e["detail"].(string), "codehost=fake") {
 		t.Errorf("start entry = %v", e)
+	}
+	if e := entries[0].(map[string]any); e["action"] != "token.use" || e["actor"] != "token:test" || e["subject"] != "GET /api/v1/audit" {
+		t.Errorf("use entry = %v", e)
 	}
 	if !strings.Contains(out.String(), "listening on 127.0.0.1:") {
 		t.Errorf("output = %q", out.String())
@@ -112,7 +149,7 @@ func TestStartsOnFakesServesAndStops(t *testing.T) {
 
 	// An open event stream must not hold the shutdown up.
 	req, _ := http.NewRequest("GET", base+"/api/v1/events", nil)
-	req.Header.Set("Authorization", "Bearer tok")
+	req.Header.Set("Authorization", "Bearer "+tok)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -135,23 +172,31 @@ func TestStartsOnFakesServesAndStops(t *testing.T) {
 	}
 	defer s.Close()
 	log, err := s.ListAudit(context.Background(), 10)
-	if err != nil || len(log) != 2 || log[0].Action != "stop" || log[1].Action != "start" {
+	if err != nil || len(log) < 3 || log[0].Action != "stop" || log[1].Action != "token.use" {
 		t.Errorf("audit after stop = %+v, %v", log, err)
 	}
 }
 
 func TestRefusesToStart(t *testing.T) {
+	good := func(t *testing.T) map[string]string { return credentials(t, goodKey, 0o400) }
+	same := func(s string) string { return s }
 	for name, tc := range map[string]struct {
 		mod  func(string) string
-		env  map[string]string
+		env  func(t *testing.T) map[string]string
 		want string
 	}{
-		"no token":         {func(s string) string { return s }, nil, "CONTROL_TEST_TOKEN (token_env) is empty"},
-		"unknown adapter":  {func(s string) string { return strings.Replace(s, `"coder":"fake"`, `"coder":"ollama"`, 1) }, map[string]string{"CONTROL_TEST_TOKEN": "t"}, `adapters.coder: no adapter "ollama" (known: fake)`},
-		"wildcard listen":  {func(s string) string { return strings.Replace(s, "@LISTEN@", "0.0.0.0:8443", 1) }, map[string]string{"CONTROL_TEST_TOKEN": "t"}, "would listen publicly"},
-		"missing routing":  {func(s string) string { return strings.Replace(s, "routing.json", "gone.json", 1) }, map[string]string{"CONTROL_TEST_TOKEN": "t"}, "gone.json"},
-		"address taken":    {nil, map[string]string{"CONTROL_TEST_TOKEN": "t"}, "address already in use"},
-		"unknown json key": {func(s string) string { return strings.Replace(s, `"format"`, `"extra":1,"format"`, 1) }, map[string]string{"CONTROL_TEST_TOKEN": "t"}, `unknown field "extra"`},
+		"no credentials directory": {same, func(*testing.T) map[string]string { return nil }, "CREDENTIALS_DIRECTORY is not set"},
+		"no key file": {same, func(t *testing.T) map[string]string {
+			return map[string]string{"CREDENTIALS_DIRECTORY": t.TempDir()}
+		}, "master key"},
+		"key readable by others": {same, func(t *testing.T) map[string]string { return credentials(t, goodKey, 0o644) }, "readable by other users"},
+		"key too short":          {same, func(t *testing.T) map[string]string { return credentials(t, "abcd", 0o400) }, "64 hexadecimal digits"},
+		"key not hex":            {same, func(t *testing.T) map[string]string { return credentials(t, strings.Repeat("zz", 32), 0o400) }, "64 hexadecimal digits"},
+		"unknown adapter":        {func(s string) string { return strings.Replace(s, `"coder":"fake"`, `"coder":"ollama"`, 1) }, good, `adapters.coder: no adapter "ollama" (known: fake)`},
+		"wildcard listen":        {func(s string) string { return strings.Replace(s, "@LISTEN@", "0.0.0.0:8443", 1) }, good, "would listen publicly"},
+		"missing routing":        {func(s string) string { return strings.Replace(s, "routing.json", "gone.json", 1) }, good, "gone.json"},
+		"address taken":          {nil, good, "address already in use"},
+		"unknown json key":       {func(s string) string { return strings.Replace(s, `"format"`, `"extra":1,"format"`, 1) }, good, `unknown field "extra"`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			mod := tc.mod
@@ -161,14 +206,91 @@ func TestRefusesToStart(t *testing.T) {
 				mod = func(s string) string { return strings.Replace(s, "@LISTEN@", ln.Addr().String(), 1) }
 			}
 			cfg, _ := operatorJSON(t, mod)
-			err := run(context.Background(), []string{"-config", cfg}, env(tc.env), &bytes.Buffer{}, nil)
+			_, err := command(t, cfg, tc.env(t), "")
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
 			}
 		})
 	}
-	if err := run(context.Background(), []string{"-config", filepath.Join(t.TempDir(), "none.json")}, env(nil), &bytes.Buffer{}, nil); err == nil {
+	if _, err := command(t, filepath.Join(t.TempDir(), "none.json"), nil, ""); err == nil {
 		t.Error("a missing config started")
+	}
+}
+
+func TestSecretAndTokenCommands(t *testing.T) {
+	cfg, dbPath := operatorJSON(t, func(s string) string { return s })
+	creds := credentials(t, goodKey, 0o400)
+	do := func(stdin string, args ...string) string {
+		t.Helper()
+		out, err := command(t, cfg, creds, stdin, args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return out
+	}
+	var seen strings.Builder // everything the commands printed
+
+	seen.WriteString(do("ghp_the-value\n", "secret", "put", "MIRROR_GH_TOKEN", "-expires", "2027-10-17", "-remind", "2027-09-17"))
+	seen.WriteString(do("ghp_the-value-2", "secret", "rotate", "MIRROR_GH_TOKEN", "-expires", "2028-10-17"))
+	tok := strings.TrimSpace(do("", "token", "create", "ci", "-role", "operator"))
+	if !strings.HasPrefix(tok, "blk_") {
+		t.Fatalf("token = %q", tok)
+	}
+	list := do("", "credentials")
+	seen.WriteString(list)
+	for _, want := range []string{"secret", "MIRROR_GH_TOKEN", "2028-10-17", "token", "ci", "operator"} {
+		if !strings.Contains(list, want) {
+			t.Errorf("credentials lacks %q:\n%s", want, list)
+		}
+	}
+	if exp := do("", "credentials", "-expiring"); strings.Contains(exp, "MIRROR_GH_TOKEN") {
+		t.Errorf("a secret expiring in 2028 is listed as expiring:\n%s", exp)
+	}
+	seen.WriteString(do("", "token", "revoke", "ci"))
+	seen.WriteString(do("", "secret", "delete", "MIRROR_GH_TOKEN"))
+	if list := do("", "credentials"); strings.Contains(list, "MIRROR_GH_TOKEN") || !strings.Contains(list, "revoked") {
+		t.Errorf("after delete and revoke:\n%s", list)
+	}
+
+	for name, tc := range map[string]struct {
+		stdin string
+		args  []string
+		want  string
+	}{
+		"empty value":     {"", []string{"secret", "put", "X"}, "needs a name"},
+		"bad date":        {"v", []string{"secret", "put", "X", "-expires", "tomorrow"}, "not a date"},
+		"unknown secret":  {"v", []string{"secret", "rotate", "X"}, "not found"},
+		"unknown role":    {"", []string{"token", "create", "t", "-role", "root"}, "not a role"},
+		"unknown command": {"", []string{"frobnicate"}, "commands:"},
+		"missing name":    {"", []string{"secret", "put"}, "commands:"},
+	} {
+		if _, err := command(t, cfg, creds, tc.stdin, tc.args...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want %q", name, err, tc.want)
+		}
+	}
+
+	if strings.Contains(seen.String(), "ghp_the-value") || strings.Contains(seen.String(), tok) {
+		t.Errorf("a command printed a secret or a token:\n%s", seen.String())
+	}
+	s, err := store.Open(context.Background(), dbPath, events.New(), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	log, err := s.ListAudit(context.Background(), 20)
+	if err != nil || len(log) != 5 {
+		t.Fatalf("audit = %+v, %v", log, err)
+	}
+	var actions []string
+	for i := len(log) - 1; i >= 0; i-- {
+		actions = append(actions, log[i].Actor+" "+log[i].Action+" "+log[i].Subject)
+		if strings.Contains(log[i].Detail+log[i].Subject, "ghp_") || strings.Contains(log[i].Detail, tok) {
+			t.Errorf("audit leaks: %+v", log[i])
+		}
+	}
+	want := "cli secret.put MIRROR_GH_TOKEN,cli secret.rotate MIRROR_GH_TOKEN,cli token.create ci,cli token.revoke ci,cli secret.delete MIRROR_GH_TOKEN"
+	if strings.Join(actions, ",") != want {
+		t.Errorf("audit actions = %v", actions)
 	}
 }
 
