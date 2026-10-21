@@ -153,9 +153,17 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 		return err
 	}
 	defer db.Close()
-	vlt, err := vault.New(db.DB(), key, db, []string{server.Role}, time.Now)
+	vlt, err := vault.New(db.DB(), key, db, server.Roles, time.Now)
 	if err != nil {
 		return err
+	}
+	// The key must be the one the stored secrets were sealed with, before the
+	// service starts and before a command seals a new one under it. Deleting
+	// a secret, revoking a token and listing need no key.
+	if len(command) == 0 || (command[0] == "secret" && len(command) > 1 && command[1] != "delete") {
+		if err := vlt.Verify(ctx); err != nil {
+			return fmt.Errorf("master key %s: %w", cfg.MasterKeyCredential, err)
+		}
 	}
 	if len(command) > 0 {
 		return admin(ctx, vlt, command, in, out)

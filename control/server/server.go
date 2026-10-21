@@ -22,6 +22,15 @@ import (
 // refused with a 403.
 const Role = "operator"
 
+// AdminRole is the role of the routes that change credentials (put, rotate
+// and delete a secret, issue and revoke a token). It is held apart from Role
+// so that a token an automated runner holds cannot mint tokens or touch
+// secrets; it reaches no other route.
+const AdminRole = "admin"
+
+// Roles are the roles a token may act as.
+var Roles = []string{Role, AdminRole}
+
 // Tokens checks a presented API token: the role it acts as, or an error when
 // it is unknown, expired, revoked or its use could not be recorded. use is
 // "METHOD /path", for the audit log. *vault.Vault is one.

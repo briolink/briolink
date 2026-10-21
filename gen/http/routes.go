@@ -33,17 +33,17 @@ type Service interface {
 	ListAudit(ctx context.Context, req ListAuditRequest) (ListAuditResponse, error)
 	// ListSecrets runs credentials_of_kind in control: GET /api/v1/secrets, as operator.
 	ListSecrets(ctx context.Context, req ListSecretsRequest) (ListSecretsResponse, error)
-	// PutSecret runs credential_problem in control: POST /api/v1/secrets, as operator.
+	// PutSecret runs credential_problem in control: POST /api/v1/secrets, as admin.
 	PutSecret(ctx context.Context, req PutSecretRequest) error
-	// RotateSecret runs credential_problem in control: PUT /api/v1/secrets/{name}, as operator.
+	// RotateSecret runs credential_problem in control: PUT /api/v1/secrets/{name}, as admin.
 	RotateSecret(ctx context.Context, req RotateSecretRequest) error
-	// DeleteSecret runs credential_problem in control: DELETE /api/v1/secrets/{name}, as operator.
+	// DeleteSecret runs credential_problem in control: DELETE /api/v1/secrets/{name}, as admin.
 	DeleteSecret(ctx context.Context, req DeleteSecretRequest) error
 	// ListTokens runs credentials_of_kind in control: GET /api/v1/tokens, as operator.
 	ListTokens(ctx context.Context, req ListTokensRequest) (ListTokensResponse, error)
-	// IssueToken runs credential_problem in control: POST /api/v1/tokens, as operator.
+	// IssueToken runs credential_problem in control: POST /api/v1/tokens, as admin.
 	IssueToken(ctx context.Context, req IssueTokenRequest) (IssueTokenResponse, error)
-	// RevokeToken runs credential_problem in control: POST /api/v1/tokens/{name}/revoke, as operator.
+	// RevokeToken runs credential_problem in control: POST /api/v1/tokens/{name}/revoke, as admin.
 	RevokeToken(ctx context.Context, req RevokeTokenRequest) error
 }
 
@@ -61,12 +61,12 @@ var Routes = []RouteInfo{
 	{Name: "list_runs", Method: "GET", Path: "/api/v1/runs", Role: "operator", Context: "control", Call: "page_size", Status: 200},
 	{Name: "list_audit", Method: "GET", Path: "/api/v1/audit", Role: "operator", Context: "control", Call: "page_size", Status: 200},
 	{Name: "list_secrets", Method: "GET", Path: "/api/v1/secrets", Role: "operator", Context: "control", Call: "credentials_of_kind", Status: 200},
-	{Name: "put_secret", Method: "POST", Path: "/api/v1/secrets", Role: "operator", Context: "control", Call: "credential_problem", Status: 204},
-	{Name: "rotate_secret", Method: "PUT", Path: "/api/v1/secrets/{name}", Role: "operator", Context: "control", Call: "credential_problem", Status: 204},
-	{Name: "delete_secret", Method: "DELETE", Path: "/api/v1/secrets/{name}", Role: "operator", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "put_secret", Method: "POST", Path: "/api/v1/secrets", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "rotate_secret", Method: "PUT", Path: "/api/v1/secrets/{name}", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "delete_secret", Method: "DELETE", Path: "/api/v1/secrets/{name}", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
 	{Name: "list_tokens", Method: "GET", Path: "/api/v1/tokens", Role: "operator", Context: "control", Call: "credentials_of_kind", Status: 200},
-	{Name: "issue_token", Method: "POST", Path: "/api/v1/tokens", Role: "operator", Context: "control", Call: "credential_problem", Status: 201},
-	{Name: "revoke_token", Method: "POST", Path: "/api/v1/tokens/{name}/revoke", Role: "operator", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "issue_token", Method: "POST", Path: "/api/v1/tokens", Role: "admin", Context: "control", Call: "credential_problem", Status: 201},
+	{Name: "revoke_token", Method: "POST", Path: "/api/v1/tokens/{name}/revoke", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
 }
 
 // GetRoutingRequest is the validated request of get_routing.
@@ -333,12 +333,12 @@ func Handler(svc Service, auth Auth) http.Handler {
 	mux.HandleFunc("GET /api/v1/runs", h.guard("operator", h.listRuns))
 	mux.HandleFunc("GET /api/v1/audit", h.guard("operator", h.listAudit))
 	mux.HandleFunc("GET /api/v1/secrets", h.guard("operator", h.listSecrets))
-	mux.HandleFunc("POST /api/v1/secrets", h.guard("operator", h.putSecret))
-	mux.HandleFunc("PUT /api/v1/secrets/{name}", h.guard("operator", h.rotateSecret))
-	mux.HandleFunc("DELETE /api/v1/secrets/{name}", h.guard("operator", h.deleteSecret))
+	mux.HandleFunc("POST /api/v1/secrets", h.guard("admin", h.putSecret))
+	mux.HandleFunc("PUT /api/v1/secrets/{name}", h.guard("admin", h.rotateSecret))
+	mux.HandleFunc("DELETE /api/v1/secrets/{name}", h.guard("admin", h.deleteSecret))
 	mux.HandleFunc("GET /api/v1/tokens", h.guard("operator", h.listTokens))
-	mux.HandleFunc("POST /api/v1/tokens", h.guard("operator", h.issueToken))
-	mux.HandleFunc("POST /api/v1/tokens/{name}/revoke", h.guard("operator", h.revokeToken))
+	mux.HandleFunc("POST /api/v1/tokens", h.guard("admin", h.issueToken))
+	mux.HandleFunc("POST /api/v1/tokens/{name}/revoke", h.guard("admin", h.revokeToken))
 	return mux
 }
 

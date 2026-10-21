@@ -72,17 +72,17 @@ func TestSecretRoutes(t *testing.T) {
 	expires := time.Now().UTC().AddDate(0, 0, 10).Format("2006-01-02")
 	remind := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 
-	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.token, map[string]any{"name": "MIRROR_GH_TOKEN", "value": secretValue, "expires_on": expires, "remind_on": remind}); s != 204 || b != "" {
+	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.admin, map[string]any{"name": "MIRROR_GH_TOKEN", "value": secretValue, "expires_on": expires, "remind_on": remind}); s != 204 || b != "" {
 		t.Fatalf("put: %d %q", s, b)
 	}
 	// Stored: the value is what Use opens, under the name.
 	if v, err := r.vault.Use(ctx, "test", "MIRROR_GH_TOKEN"); err != nil || string(v) != secretValue {
 		t.Fatalf("stored value = %q, %v", v, err)
 	}
-	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.token, map[string]any{"name": "MIRROR_GH_TOKEN", "value": "other"}); s != 409 {
+	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.admin, map[string]any{"name": "MIRROR_GH_TOKEN", "value": "other"}); s != 409 {
 		t.Errorf("put again: %d %s", s, b)
 	}
-	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.token, map[string]any{"name": "NO_DATES", "value": secretValue}); s != 204 {
+	if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.admin, map[string]any{"name": "NO_DATES", "value": secretValue}); s != 204 {
 		t.Fatalf("put without dates: %d %s", s, b)
 	}
 
@@ -104,7 +104,7 @@ func TestSecretRoutes(t *testing.T) {
 	}
 
 	newExpiry := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
-	if s, b := r.send(t, &got, "PUT", "/api/v1/secrets/MIRROR_GH_TOKEN", r.token, map[string]any{"value": "rotated-VALUE-77", "expires_on": newExpiry}); s != 204 || b != "" {
+	if s, b := r.send(t, &got, "PUT", "/api/v1/secrets/MIRROR_GH_TOKEN", r.admin, map[string]any{"value": "rotated-VALUE-77", "expires_on": newExpiry}); s != 204 || b != "" {
 		t.Fatalf("rotate: %d %q", s, b)
 	}
 	if v, _ := r.vault.Use(ctx, "test", "MIRROR_GH_TOKEN"); string(v) != "rotated-VALUE-77" {
@@ -114,17 +114,17 @@ func TestSecretRoutes(t *testing.T) {
 	if e := decode(t, b)["secrets"].([]any)[0].(map[string]any); e["expires_on"] != newExpiry || e["remind_on"] != "" || e["rotated_at"] == "" {
 		t.Errorf("after rotation: %v", e)
 	}
-	if s, _ := r.send(t, &got, "PUT", "/api/v1/secrets/NOPE", r.token, map[string]any{"value": "v"}); s != 404 {
+	if s, _ := r.send(t, &got, "PUT", "/api/v1/secrets/NOPE", r.admin, map[string]any{"value": "v"}); s != 404 {
 		t.Errorf("rotate unknown: %d", s)
 	}
 
-	if s, b := r.send(t, &got, "DELETE", "/api/v1/secrets/MIRROR_GH_TOKEN", r.token, nil); s != 204 || b != "" {
+	if s, b := r.send(t, &got, "DELETE", "/api/v1/secrets/MIRROR_GH_TOKEN", r.admin, nil); s != 204 || b != "" {
 		t.Fatalf("delete: %d %q", s, b)
 	}
 	if _, err := r.vault.Use(ctx, "test", "MIRROR_GH_TOKEN"); err == nil {
 		t.Error("the secret is still there")
 	}
-	if s, _ := r.send(t, &got, "DELETE", "/api/v1/secrets/MIRROR_GH_TOKEN", r.token, nil); s != 404 {
+	if s, _ := r.send(t, &got, "DELETE", "/api/v1/secrets/MIRROR_GH_TOKEN", r.admin, nil); s != 404 {
 		t.Errorf("delete again: %d", s)
 	}
 
@@ -140,7 +140,7 @@ func TestSecretRoutes(t *testing.T) {
 		"not an object":               `["` + secretValue + `"]`,
 		"not JSON":                    secretValue,
 	} {
-		if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.token, body); s < 400 || s >= 500 {
+		if s, b := r.send(t, &got, "POST", "/api/v1/secrets", r.admin, body); s < 400 || s >= 500 {
 			t.Errorf("%s: %d %s", name, s, b)
 		}
 	}
@@ -150,7 +150,7 @@ func TestSecretRoutes(t *testing.T) {
 	}
 	// Without a JSON content type nothing is read.
 	req, _ := http.NewRequest("POST", r.url+"/api/v1/secrets", strings.NewReader(`{"name":"X7","value":"`+secretValue+`"}`))
-	req.Header.Set("Authorization", "Bearer "+r.token)
+	req.Header.Set("Authorization", "Bearer "+r.admin)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestTokenRoutes(t *testing.T) {
 	var got seen
 	expires := time.Now().UTC().AddDate(0, 0, 20).Format("2006-01-02")
 
-	s, b := r.send(t, &got, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "ci", "role": server.Role, "expires_on": expires})
+	s, b := r.send(t, &got, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "ci", "role": server.Role, "expires_on": expires})
 	if s != 201 {
 		t.Fatalf("issue: %d %s", s, b)
 	}
@@ -192,21 +192,21 @@ func TestTokenRoutes(t *testing.T) {
 	if s, _ := r.send(t, nil, "GET", "/api/v1/routing", issued, nil); s != 200 {
 		t.Errorf("the issued token: %d", s)
 	}
-	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "ci", "role": server.Role}); s != 409 {
+	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "ci", "role": server.Role}); s != 409 {
 		t.Errorf("issue again: %d", s)
 	}
-	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "ghost", "role": "nobody"}); s != 422 {
+	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "ghost", "role": "nobody"}); s != 422 {
 		t.Errorf("issue for an unknown role: %d", s)
 	}
-	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "late", "role": server.Role, "expires_on": "2027-13-40"}); s != 422 {
+	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "late", "role": server.Role, "expires_on": "2027-13-40"}); s != 422 {
 		t.Errorf("issue with a bad date: %d", s)
 	}
-	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "eye", "role": "viewer"}); s != 201 {
+	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "eye", "role": "viewer"}); s != 201 {
 		t.Errorf("issue for another declared role: %d", s)
 	}
 
 	s, b = r.send(t, &got, "GET", "/api/v1/tokens", r.token, nil)
-	if s != 200 || strings.Join(names(t, b, "tokens"), ",") != "ci,eye,rig" {
+	if s != 200 || strings.Join(names(t, b, "tokens"), ",") != "admin-rig,ci,eye,rig" {
 		t.Fatalf("list: %d %s", s, b)
 	}
 	if strings.Contains(b, issued) {
@@ -221,13 +221,13 @@ func TestTokenRoutes(t *testing.T) {
 		t.Errorf("expiring: %s", b)
 	}
 
-	if s, b := r.send(t, &got, "POST", "/api/v1/tokens/ci/revoke", r.token, nil); s != 204 || b != "" {
+	if s, b := r.send(t, &got, "POST", "/api/v1/tokens/ci/revoke", r.admin, nil); s != 204 || b != "" {
 		t.Fatalf("revoke: %d %q", s, b)
 	}
 	if s, _ := r.send(t, nil, "GET", "/api/v1/routing", issued, nil); s != 401 {
 		t.Errorf("the revoked token: %d", s)
 	}
-	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens/nobody/revoke", r.token, nil); s != 404 {
+	if s, _ := r.send(t, &got, "POST", "/api/v1/tokens/nobody/revoke", r.admin, nil); s != 404 {
 		t.Errorf("revoke unknown: %d", s)
 	}
 	_, b = r.send(t, &got, "GET", "/api/v1/tokens", r.token, nil)
@@ -251,12 +251,12 @@ func TestTokenRoutes(t *testing.T) {
 
 func TestCredentialRoutesAreAudited(t *testing.T) {
 	r := newRig(t, 0)
-	r.send(t, nil, "POST", "/api/v1/secrets", r.token, map[string]any{"name": "A", "value": secretValue})
-	r.send(t, nil, "PUT", "/api/v1/secrets/A", r.token, map[string]any{"value": secretValue + "2"})
-	r.send(t, nil, "DELETE", "/api/v1/secrets/A", r.token, nil)
-	r.send(t, nil, "POST", "/api/v1/tokens", r.token, map[string]any{"name": "T", "role": server.Role})
-	r.send(t, nil, "POST", "/api/v1/tokens/T/revoke", r.token, nil)
-	r.send(t, nil, "DELETE", "/api/v1/secrets/A", r.token, nil) // refused: leaves no change line
+	r.send(t, nil, "POST", "/api/v1/secrets", r.admin, map[string]any{"name": "A", "value": secretValue})
+	r.send(t, nil, "PUT", "/api/v1/secrets/A", r.admin, map[string]any{"value": secretValue + "2"})
+	r.send(t, nil, "DELETE", "/api/v1/secrets/A", r.admin, nil)
+	r.send(t, nil, "POST", "/api/v1/tokens", r.admin, map[string]any{"name": "T", "role": server.Role})
+	r.send(t, nil, "POST", "/api/v1/tokens/T/revoke", r.admin, nil)
+	r.send(t, nil, "DELETE", "/api/v1/secrets/A", r.admin, nil) // refused: leaves no change line
 
 	log, err := r.store.ListAudit(context.Background(), 100)
 	if err != nil {
@@ -272,17 +272,22 @@ func TestCredentialRoutesAreAudited(t *testing.T) {
 			changes = append(changes, e.Actor+" "+e.Action+" "+e.Subject)
 		}
 	}
-	want := "token:rig secret.put A,token:rig secret.rotate A,token:rig secret.delete A,token:rig token.create T,token:rig token.revoke T"
+	want := "token:admin-rig secret.put A,token:admin-rig secret.rotate A,token:admin-rig secret.delete A,token:admin-rig token.create T,token:admin-rig token.revoke T"
 	if strings.Join(changes, ",") != want {
 		t.Errorf("changes = %q\nwant      %q", strings.Join(changes, ","), want)
 	}
 }
 
-type route struct{ method, path string }
+// route is a credential route; admin is whether it changes credentials (and
+// so needs the admin role) or only lists them (the operator role).
+type route struct {
+	method, path string
+	admin        bool
+}
 
 var credentialRoutes = []route{
-	{"GET", "/api/v1/secrets"}, {"POST", "/api/v1/secrets"}, {"PUT", "/api/v1/secrets/KEEP"}, {"DELETE", "/api/v1/secrets/KEEP"},
-	{"GET", "/api/v1/tokens"}, {"POST", "/api/v1/tokens"}, {"POST", "/api/v1/tokens/rig/revoke"},
+	{"GET", "/api/v1/secrets", false}, {"POST", "/api/v1/secrets", true}, {"PUT", "/api/v1/secrets/KEEP", true}, {"DELETE", "/api/v1/secrets/KEEP", true},
+	{"GET", "/api/v1/tokens", false}, {"POST", "/api/v1/tokens", true}, {"POST", "/api/v1/tokens/rig/revoke", true},
 }
 
 func credentialBody(rt route) any {
@@ -297,7 +302,7 @@ func credentialBody(rt route) any {
 	return nil
 }
 
-func TestCredentialRoutesNeedTheOperatorRole(t *testing.T) {
+func TestCredentialRoutesNeedTheirRole(t *testing.T) {
 	r := newRig(t, 0)
 	ctx := context.Background()
 	if err := r.vault.Put(ctx, "test", "KEEP", []byte(secretValue), vault.Dates{}); err != nil {
@@ -311,11 +316,20 @@ func TestCredentialRoutesNeedTheOperatorRole(t *testing.T) {
 	r.vault.RevokeToken(ctx, "test", "gone-tok")
 	old, _ := r.vault.CreateToken(ctx, "test", "old-tok", server.Role, vault.Dates{ExpiresOn: "2026-10-16"})
 
+	adminGone, _ := r.vault.CreateToken(ctx, "test", "admin-gone", server.AdminRole, vault.Dates{})
+	r.vault.RevokeToken(ctx, "test", "admin-gone")
 	for _, rt := range credentialRoutes {
+		wrongRole := r.admin // a list needs the operator role
+		if rt.admin {
+			wrongRole = r.token // a change needs the admin role: the operator's token does not do
+		}
 		for name, tc := range map[string]struct {
 			bearer string
 			want   int
-		}{"no token": {"", 401}, "an unknown token": {"blk_unknown", 401}, "a token of another role": {other, 403}, "a revoked token": {gone, 401}, "an expired token": {old, 401}} {
+		}{
+			"no token": {"", 401}, "an unknown token": {"blk_unknown", 401}, "a token of another role": {other, 403}, "the other of the two roles": {wrongRole, 403},
+			"a revoked token": {gone, 401}, "a revoked admin token": {adminGone, 401}, "an expired token": {old, 401},
+		} {
 			var got seen
 			s, b := r.send(t, &got, rt.method, rt.path, tc.bearer, credentialBody(rt))
 			if s != tc.want {

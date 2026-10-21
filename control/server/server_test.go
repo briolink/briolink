@@ -26,6 +26,7 @@ import (
 
 type rig struct {
 	token  string // a live token acting as the operator role
+	admin  string // a live token acting as the admin role
 	vault  *vault.Vault
 	url    string
 	store  *store.Store
@@ -44,11 +45,15 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	vlt, err := vault.New(st.DB(), bytes.Repeat([]byte{7}, 32), st, []string{server.Role, "viewer"}, time.Now)
+	vlt, err := vault.New(st.DB(), bytes.Repeat([]byte{7}, 32), st, append([]string{"viewer"}, server.Roles...), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	token, err := vlt.CreateToken(ctx, "test", "rig", server.Role, vault.Dates{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin, err := vlt.CreateToken(ctx, "test", "admin-rig", server.AdminRole, vault.Dates{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +70,7 @@ func newRig(t *testing.T, heartbeat time.Duration) rig {
 	}
 	srv := httptest.NewServer(server.Handler(server.Config{Service: svc, Events: broker, Tokens: vlt, Heartbeat: heartbeat}))
 	t.Cleanup(srv.Close)
-	return rig{token, vlt, srv.URL, st, broker, host}
+	return rig{token, admin, vlt, srv.URL, st, broker, host}
 }
 
 func (r rig) get(t *testing.T, path, bearer string) (int, http.Header, map[string]any) {
@@ -308,8 +313,8 @@ func TestEventStreamDeliversWrites(t *testing.T) {
 	if _, err := r.store.AddAudit(context.Background(), "control", "start", "plane", ""); err != nil {
 		t.Fatal(err)
 	}
-	// 1 is the rig's token, 2 the earlier line, 3 this stream's own token use.
-	if l := next(t, lines); l != "id: 4" {
+	// 1 and 2 are the rig's tokens, 3 the earlier line, 4 this stream's own token use.
+	if l := next(t, lines); l != "id: 5" {
 		t.Errorf("line = %q", l)
 	}
 	if l := next(t, lines); l != "event: audit" {
@@ -335,16 +340,16 @@ func TestEventStreamResumesAfterLastEventID(t *testing.T) {
 	r.store.AddAudit(ctx, "a", "two", "", "")
 	r.store.AddRun(ctx, store.NewRun{Task: 1, Tier: "t", Job: "j", Model: "m", Outcome: control.RunOutcomeRunning})
 
-	_, lines := openStream(t, r, "2")
+	_, lines := openStream(t, r, "3")
 	next(t, lines)
 	next(t, lines)
 	got := []string{next(t, lines), next(t, lines)}
-	if got[0] != "id: 3" || got[1] != "event: audit" {
+	if got[0] != "id: 4" || got[1] != "event: audit" {
 		t.Errorf("first replayed = %v", got)
 	}
 	next(t, lines)
 	next(t, lines)
-	if l := next(t, lines); l != "id: 4" {
+	if l := next(t, lines); l != "id: 5" {
 		t.Errorf("second replayed = %q", l)
 	}
 	if l := next(t, lines); l != "event: run" {

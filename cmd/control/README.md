@@ -25,7 +25,8 @@ bin/control [-config operator.json] <command>
 - `listen` is an IP address and port. A wildcard address is refused (nothing
   listens publicly, A20); `tls` may be `null` only on a loopback address.
 - It refuses to start when the master key is missing, readable by other users or
-  not 64 hexadecimal digits, an adapter name is unknown, or any file is missing.
+  not 64 hexadecimal digits, a stored secret does not open under it, an adapter
+  name is unknown, or any file is missing.
   The key is read from `$CREDENTIALS_DIRECTORY/<master_key_credential>`, which
   systemd sets for a unit with `LoadCredentialEncrypted=` (A20). On start and on a clean stop it appends an
   audit line (the start line names the adapters bound).
@@ -43,9 +44,9 @@ is dropped.
 | Command | Does |
 | --- | --- |
 | `secret put NAME [-expires D] [-remind D]` | Seals a new secret |
-| `secret rotate NAME [-expires D] [-remind D]` | Replaces the value and the dates |
+| `secret rotate NAME [-expires D] [-remind D]` | Replaces the value and the dates (a date left out is cleared) |
 | `secret delete NAME` | Deletes it |
-| `token create NAME [-role operator] [-expires D] [-remind D]` | Prints a new API token, once |
+| `token create NAME [-role operator\|admin] [-expires D] [-remind D]` | Prints a new API token, once |
 | `token revoke NAME` | Stops the token authenticating |
 | `credentials [-expiring]` | Lists secrets and tokens with their dates, never values |
 

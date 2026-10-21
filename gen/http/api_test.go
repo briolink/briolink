@@ -439,7 +439,7 @@ func TestPutSecret_AcceptsValid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			rec := do(svc, "operator", c)
+			rec := do(svc, "admin", c)
 			wantOK(t, rec, 204)
 			if len(svc.calls) != 1 || svc.calls[0] != "PutSecret" {
 				t.Fatalf("calls = %v, want [PutSecret]", svc.calls)
@@ -450,7 +450,7 @@ func TestPutSecret_AcceptsValid(t *testing.T) {
 
 func TestPutSecret_PassesValues(t *testing.T) {
 	svc := &fakeService{}
-	wantOK(t, do(svc, "operator", putSecretBaseline), 204)
+	wantOK(t, do(svc, "admin", putSecretBaseline), 204)
 	req := svc.last.(PutSecretRequest)
 	if req.Name != "a" {
 		t.Errorf("name = %v, want \"a\"", req.Name)
@@ -465,7 +465,7 @@ func TestPutSecret_PassesValues(t *testing.T) {
 		t.Errorf("remind_on = %v, want \"aaaaaaaaaa\"", req.RemindOn)
 	}
 	svc = &fakeService{}
-	wantOK(t, do(svc, "operator", apiCase{"", "POST", "/api/v1/secrets", "application/json", "{\"name\":\"a\",\"value\":\"a\"}", 204}), 204)
+	wantOK(t, do(svc, "admin", apiCase{"", "POST", "/api/v1/secrets", "application/json", "{\"name\":\"a\",\"value\":\"a\"}", 204}), 204)
 	req = svc.last.(PutSecretRequest)
 	if req.ExpiresOn != nil {
 		t.Errorf("expires_on = %v, want it absent", req.ExpiresOn)
@@ -506,7 +506,7 @@ func TestPutSecret_RejectsInvalid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			wantProblem(t, do(svc, "operator", c), c.want)
+			wantProblem(t, do(svc, "admin", c), c.want)
 			if len(svc.calls) != 0 {
 				t.Fatalf("the service was called: %v", svc.calls)
 			}
@@ -523,7 +523,7 @@ func TestRotateSecret_AcceptsValid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			rec := do(svc, "operator", c)
+			rec := do(svc, "admin", c)
 			wantOK(t, rec, 204)
 			if len(svc.calls) != 1 || svc.calls[0] != "RotateSecret" {
 				t.Fatalf("calls = %v, want [RotateSecret]", svc.calls)
@@ -534,7 +534,7 @@ func TestRotateSecret_AcceptsValid(t *testing.T) {
 
 func TestRotateSecret_PassesValues(t *testing.T) {
 	svc := &fakeService{}
-	wantOK(t, do(svc, "operator", rotateSecretBaseline), 204)
+	wantOK(t, do(svc, "admin", rotateSecretBaseline), 204)
 	req := svc.last.(RotateSecretRequest)
 	if req.Name != "a" {
 		t.Errorf("name = %v, want \"a\"", req.Name)
@@ -549,7 +549,7 @@ func TestRotateSecret_PassesValues(t *testing.T) {
 		t.Errorf("remind_on = %v, want \"aaaaaaaaaa\"", req.RemindOn)
 	}
 	svc = &fakeService{}
-	wantOK(t, do(svc, "operator", apiCase{"", "PUT", "/api/v1/secrets/a", "application/json", "{\"value\":\"a\"}", 204}), 204)
+	wantOK(t, do(svc, "admin", apiCase{"", "PUT", "/api/v1/secrets/a", "application/json", "{\"value\":\"a\"}", 204}), 204)
 	req = svc.last.(RotateSecretRequest)
 	if req.ExpiresOn != nil {
 		t.Errorf("expires_on = %v, want it absent", req.ExpiresOn)
@@ -586,7 +586,7 @@ func TestRotateSecret_RejectsInvalid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			wantProblem(t, do(svc, "operator", c), c.want)
+			wantProblem(t, do(svc, "admin", c), c.want)
 			if len(svc.calls) != 0 {
 				t.Fatalf("the service was called: %v", svc.calls)
 			}
@@ -602,7 +602,7 @@ func TestDeleteSecret_AcceptsValid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			rec := do(svc, "operator", c)
+			rec := do(svc, "admin", c)
 			wantOK(t, rec, 204)
 			if len(svc.calls) != 1 || svc.calls[0] != "DeleteSecret" {
 				t.Fatalf("calls = %v, want [DeleteSecret]", svc.calls)
@@ -613,7 +613,7 @@ func TestDeleteSecret_AcceptsValid(t *testing.T) {
 
 func TestDeleteSecret_PassesValues(t *testing.T) {
 	svc := &fakeService{}
-	wantOK(t, do(svc, "operator", deleteSecretBaseline), 204)
+	wantOK(t, do(svc, "admin", deleteSecretBaseline), 204)
 	req := svc.last.(DeleteSecretRequest)
 	if req.Name != "a" {
 		t.Errorf("name = %v, want \"a\"", req.Name)
@@ -628,7 +628,7 @@ func TestDeleteSecret_RejectsInvalid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			wantProblem(t, do(svc, "operator", c), c.want)
+			wantProblem(t, do(svc, "admin", c), c.want)
 			if len(svc.calls) != 0 {
 				t.Fatalf("the service was called: %v", svc.calls)
 			}
@@ -694,7 +694,7 @@ func TestIssueToken_AcceptsValid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			rec := do(svc, "operator", c)
+			rec := do(svc, "admin", c)
 			wantOK(t, rec, 201, "token")
 			if len(svc.calls) != 1 || svc.calls[0] != "IssueToken" {
 				t.Fatalf("calls = %v, want [IssueToken]", svc.calls)
@@ -705,7 +705,7 @@ func TestIssueToken_AcceptsValid(t *testing.T) {
 
 func TestIssueToken_PassesValues(t *testing.T) {
 	svc := &fakeService{}
-	wantOK(t, do(svc, "operator", issueTokenBaseline), 201, "token")
+	wantOK(t, do(svc, "admin", issueTokenBaseline), 201, "token")
 	req := svc.last.(IssueTokenRequest)
 	if req.Name != "a" {
 		t.Errorf("name = %v, want \"a\"", req.Name)
@@ -720,7 +720,7 @@ func TestIssueToken_PassesValues(t *testing.T) {
 		t.Errorf("remind_on = %v, want \"aaaaaaaaaa\"", req.RemindOn)
 	}
 	svc = &fakeService{}
-	wantOK(t, do(svc, "operator", apiCase{"", "POST", "/api/v1/tokens", "application/json", "{\"name\":\"a\",\"role\":\"a\"}", 201}), 201, "token")
+	wantOK(t, do(svc, "admin", apiCase{"", "POST", "/api/v1/tokens", "application/json", "{\"name\":\"a\",\"role\":\"a\"}", 201}), 201, "token")
 	req = svc.last.(IssueTokenRequest)
 	if req.ExpiresOn != nil {
 		t.Errorf("expires_on = %v, want it absent", req.ExpiresOn)
@@ -762,7 +762,7 @@ func TestIssueToken_RejectsInvalid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			wantProblem(t, do(svc, "operator", c), c.want)
+			wantProblem(t, do(svc, "admin", c), c.want)
 			if len(svc.calls) != 0 {
 				t.Fatalf("the service was called: %v", svc.calls)
 			}
@@ -778,7 +778,7 @@ func TestRevokeToken_AcceptsValid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			rec := do(svc, "operator", c)
+			rec := do(svc, "admin", c)
 			wantOK(t, rec, 204)
 			if len(svc.calls) != 1 || svc.calls[0] != "RevokeToken" {
 				t.Fatalf("calls = %v, want [RevokeToken]", svc.calls)
@@ -789,7 +789,7 @@ func TestRevokeToken_AcceptsValid(t *testing.T) {
 
 func TestRevokeToken_PassesValues(t *testing.T) {
 	svc := &fakeService{}
-	wantOK(t, do(svc, "operator", revokeTokenBaseline), 204)
+	wantOK(t, do(svc, "admin", revokeTokenBaseline), 204)
 	req := svc.last.(RevokeTokenRequest)
 	if req.Name != "a" {
 		t.Errorf("name = %v, want \"a\"", req.Name)
@@ -804,7 +804,7 @@ func TestRevokeToken_RejectsInvalid(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			svc := &fakeService{}
-			wantProblem(t, do(svc, "operator", c), c.want)
+			wantProblem(t, do(svc, "admin", c), c.want)
 			if len(svc.calls) != 0 {
 				t.Fatalf("the service was called: %v", svc.calls)
 			}
@@ -824,12 +824,12 @@ func TestRoles(t *testing.T) {
 		{"list_runs", "operator", listRunsBaseline},
 		{"list_audit", "operator", listAuditBaseline},
 		{"list_secrets", "operator", listSecretsBaseline},
-		{"put_secret", "operator", putSecretBaseline},
-		{"rotate_secret", "operator", rotateSecretBaseline},
-		{"delete_secret", "operator", deleteSecretBaseline},
+		{"put_secret", "admin", putSecretBaseline},
+		{"rotate_secret", "admin", rotateSecretBaseline},
+		{"delete_secret", "admin", deleteSecretBaseline},
 		{"list_tokens", "operator", listTokensBaseline},
-		{"issue_token", "operator", issueTokenBaseline},
-		{"revoke_token", "operator", revokeTokenBaseline},
+		{"issue_token", "admin", issueTokenBaseline},
+		{"revoke_token", "admin", revokeTokenBaseline},
 	} {
 		t.Run(c.route, func(t *testing.T) {
 			svc := &fakeService{}
@@ -868,22 +868,22 @@ func TestRouteTable(t *testing.T) {
 	if r := Routes[5]; r.Name != "list_secrets" || r.Method != "GET" || r.Path != "/api/v1/secrets" || r.Role != "operator" || r.Call != "credentials_of_kind" || r.Status != 200 {
 		t.Errorf("Routes[5] = %+v", r)
 	}
-	if r := Routes[6]; r.Name != "put_secret" || r.Method != "POST" || r.Path != "/api/v1/secrets" || r.Role != "operator" || r.Call != "credential_problem" || r.Status != 204 {
+	if r := Routes[6]; r.Name != "put_secret" || r.Method != "POST" || r.Path != "/api/v1/secrets" || r.Role != "admin" || r.Call != "credential_problem" || r.Status != 204 {
 		t.Errorf("Routes[6] = %+v", r)
 	}
-	if r := Routes[7]; r.Name != "rotate_secret" || r.Method != "PUT" || r.Path != "/api/v1/secrets/{name}" || r.Role != "operator" || r.Call != "credential_problem" || r.Status != 204 {
+	if r := Routes[7]; r.Name != "rotate_secret" || r.Method != "PUT" || r.Path != "/api/v1/secrets/{name}" || r.Role != "admin" || r.Call != "credential_problem" || r.Status != 204 {
 		t.Errorf("Routes[7] = %+v", r)
 	}
-	if r := Routes[8]; r.Name != "delete_secret" || r.Method != "DELETE" || r.Path != "/api/v1/secrets/{name}" || r.Role != "operator" || r.Call != "credential_problem" || r.Status != 204 {
+	if r := Routes[8]; r.Name != "delete_secret" || r.Method != "DELETE" || r.Path != "/api/v1/secrets/{name}" || r.Role != "admin" || r.Call != "credential_problem" || r.Status != 204 {
 		t.Errorf("Routes[8] = %+v", r)
 	}
 	if r := Routes[9]; r.Name != "list_tokens" || r.Method != "GET" || r.Path != "/api/v1/tokens" || r.Role != "operator" || r.Call != "credentials_of_kind" || r.Status != 200 {
 		t.Errorf("Routes[9] = %+v", r)
 	}
-	if r := Routes[10]; r.Name != "issue_token" || r.Method != "POST" || r.Path != "/api/v1/tokens" || r.Role != "operator" || r.Call != "credential_problem" || r.Status != 201 {
+	if r := Routes[10]; r.Name != "issue_token" || r.Method != "POST" || r.Path != "/api/v1/tokens" || r.Role != "admin" || r.Call != "credential_problem" || r.Status != 201 {
 		t.Errorf("Routes[10] = %+v", r)
 	}
-	if r := Routes[11]; r.Name != "revoke_token" || r.Method != "POST" || r.Path != "/api/v1/tokens/{name}/revoke" || r.Role != "operator" || r.Call != "credential_problem" || r.Status != 204 {
+	if r := Routes[11]; r.Name != "revoke_token" || r.Method != "POST" || r.Path != "/api/v1/tokens/{name}/revoke" || r.Role != "admin" || r.Call != "credential_problem" || r.Status != 204 {
 		t.Errorf("Routes[11] = %+v", r)
 	}
 }
