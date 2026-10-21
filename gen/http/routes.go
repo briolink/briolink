@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"unicode/utf8"
 
 	"github.com/briolink/briolink/gen/domain/control"
 )
@@ -14,9 +15,11 @@ import (
 // Service is what the routes call: one method per route, taking the
 // validated request and returning the response. The project implements it;
 // each method does what its route's call names. Return ErrNotFound when
-// something the request names does not exist; the domain package's
-// ErrForbidden and ErrNoTransition (409) and InvariantError (422) are
-// mapped too. Any other error is a 500 that says nothing about its cause.
+// something the request names does not exist, ErrConflict (409) when it
+// clashes with the current state and ErrUnprocessable (422) when a rule
+// refuses it; the domain package's ErrForbidden and ErrNoTransition (409)
+// and InvariantError (422) are mapped too. Any other error is a 500 that
+// says nothing about its cause.
 type Service interface {
 	// GetRouting runs routing_view in control: GET /api/v1/routing, as operator.
 	GetRouting(ctx context.Context, req GetRoutingRequest) (GetRoutingResponse, error)
@@ -28,6 +31,20 @@ type Service interface {
 	ListRuns(ctx context.Context, req ListRunsRequest) (ListRunsResponse, error)
 	// ListAudit runs page_size in control: GET /api/v1/audit, as operator.
 	ListAudit(ctx context.Context, req ListAuditRequest) (ListAuditResponse, error)
+	// ListSecrets runs credentials_of_kind in control: GET /api/v1/secrets, as operator.
+	ListSecrets(ctx context.Context, req ListSecretsRequest) (ListSecretsResponse, error)
+	// PutSecret runs credential_problem in control: POST /api/v1/secrets, as admin.
+	PutSecret(ctx context.Context, req PutSecretRequest) error
+	// RotateSecret runs credential_problem in control: PUT /api/v1/secrets/{name}, as admin.
+	RotateSecret(ctx context.Context, req RotateSecretRequest) error
+	// DeleteSecret runs credential_problem in control: DELETE /api/v1/secrets/{name}, as admin.
+	DeleteSecret(ctx context.Context, req DeleteSecretRequest) error
+	// ListTokens runs credentials_of_kind in control: GET /api/v1/tokens, as operator.
+	ListTokens(ctx context.Context, req ListTokensRequest) (ListTokensResponse, error)
+	// IssueToken runs credential_problem in control: POST /api/v1/tokens, as admin.
+	IssueToken(ctx context.Context, req IssueTokenRequest) (IssueTokenResponse, error)
+	// RevokeToken runs credential_problem in control: POST /api/v1/tokens/{name}/revoke, as admin.
+	RevokeToken(ctx context.Context, req RevokeTokenRequest) error
 }
 
 // RouteInfo is one row of the route table.
@@ -43,6 +60,13 @@ var Routes = []RouteInfo{
 	{Name: "get_task", Method: "GET", Path: "/api/v1/tasks/{number}", Role: "operator", Context: "control", Call: "task_from_issue", Status: 200},
 	{Name: "list_runs", Method: "GET", Path: "/api/v1/runs", Role: "operator", Context: "control", Call: "page_size", Status: 200},
 	{Name: "list_audit", Method: "GET", Path: "/api/v1/audit", Role: "operator", Context: "control", Call: "page_size", Status: 200},
+	{Name: "list_secrets", Method: "GET", Path: "/api/v1/secrets", Role: "operator", Context: "control", Call: "credentials_of_kind", Status: 200},
+	{Name: "put_secret", Method: "POST", Path: "/api/v1/secrets", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "rotate_secret", Method: "PUT", Path: "/api/v1/secrets/{name}", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "delete_secret", Method: "DELETE", Path: "/api/v1/secrets/{name}", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
+	{Name: "list_tokens", Method: "GET", Path: "/api/v1/tokens", Role: "operator", Context: "control", Call: "credentials_of_kind", Status: 200},
+	{Name: "issue_token", Method: "POST", Path: "/api/v1/tokens", Role: "admin", Context: "control", Call: "credential_problem", Status: 201},
+	{Name: "revoke_token", Method: "POST", Path: "/api/v1/tokens/{name}/revoke", Role: "admin", Context: "control", Call: "credential_problem", Status: 204},
 }
 
 // GetRoutingRequest is the validated request of get_routing.
@@ -155,8 +179,142 @@ func encodeRespListAudit(v ListAuditResponse) respListAudit {
 	return out
 }
 
+// ListSecretsRequest is the validated request of list_secrets.
+type ListSecretsRequest struct {
+	// Only those whose reminder has come or that expire within 30 days
+	Expiring *bool
+}
+
+// ListSecretsResponse is what list_secrets returns.
+type ListSecretsResponse struct {
+	// By name; the names and dates, never the values
+	Secrets []control.Credential
+}
+
+type respListSecrets struct {
+	Secrets []wireControlCredential `json:"secrets"`
+}
+
+func encodeRespListSecrets(v ListSecretsResponse) respListSecrets {
+	var out respListSecrets
+	out.Secrets = func(in []control.Credential) []wireControlCredential { return encodeList(in, encodeControlCredential) }(v.Secrets)
+	return out
+}
+
+// PutSecretRequest is the validated request of put_secret.
+type PutSecretRequest struct {
+	// The credential's name
+	Name string
+	// The secret. Never returned, logged or audited
+	Value string
+	// YYYY-MM-DD
+	ExpiresOn *string
+	// YYYY-MM-DD, not after expires_on
+	RemindOn *string
+}
+
+type bodyPutSecret struct {
+	Name      *string `json:"name"`
+	Value     *string `json:"value"`
+	ExpiresOn *string `json:"expires_on"`
+	RemindOn  *string `json:"remind_on"`
+}
+
+// RotateSecretRequest is the validated request of rotate_secret.
+type RotateSecretRequest struct {
+	// The credential's name
+	Name string
+	// The secret. Never returned, logged or audited
+	Value string
+	// YYYY-MM-DD
+	ExpiresOn *string
+	// YYYY-MM-DD, not after expires_on
+	RemindOn *string
+}
+
+type bodyRotateSecret struct {
+	Value     *string `json:"value"`
+	ExpiresOn *string `json:"expires_on"`
+	RemindOn  *string `json:"remind_on"`
+}
+
+// DeleteSecretRequest is the validated request of delete_secret.
+type DeleteSecretRequest struct {
+	// The credential's name
+	Name string
+}
+
+// ListTokensRequest is the validated request of list_tokens.
+type ListTokensRequest struct {
+	// Only those whose reminder has come or that expire within 30 days
+	Expiring *bool
+}
+
+// ListTokensResponse is what list_tokens returns.
+type ListTokensResponse struct {
+	// By name; revoked ones included, marked
+	Tokens []control.Credential
+}
+
+type respListTokens struct {
+	Tokens []wireControlCredential `json:"tokens"`
+}
+
+func encodeRespListTokens(v ListTokensResponse) respListTokens {
+	var out respListTokens
+	out.Tokens = func(in []control.Credential) []wireControlCredential { return encodeList(in, encodeControlCredential) }(v.Tokens)
+	return out
+}
+
+// IssueTokenRequest is the validated request of issue_token.
+type IssueTokenRequest struct {
+	// The credential's name
+	Name string
+	// The role the token acts as
+	Role string
+	// YYYY-MM-DD
+	ExpiresOn *string
+	// YYYY-MM-DD, not after expires_on
+	RemindOn *string
+}
+
+type bodyIssueToken struct {
+	Name      *string `json:"name"`
+	Role      *string `json:"role"`
+	ExpiresOn *string `json:"expires_on"`
+	RemindOn  *string `json:"remind_on"`
+}
+
+// IssueTokenResponse is what issue_token returns.
+type IssueTokenResponse struct {
+	// The token, in this answer only: only its hash is kept
+	Token string
+}
+
+type respIssueToken struct {
+	Token *string `json:"token"`
+}
+
+func encodeRespIssueToken(v IssueTokenResponse) respIssueToken {
+	var out respIssueToken
+	out.Token = ptr(same[string](v.Token))
+	return out
+}
+
+// RevokeTokenRequest is the validated request of revoke_token.
+type RevokeTokenRequest struct {
+	// The credential's name
+	Name string
+}
+
 var (
-	reListTasksState = regexp.MustCompile("^[a-z_]{1,20}$")
+	reListTasksState   = regexp.MustCompile("^[a-z_]{1,20}$")
+	rePutSecretName    = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+	reRotateSecretName = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+	reDeleteSecretName = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+	reIssueTokenName   = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+	reIssueTokenRole   = regexp.MustCompile("^[a-z][a-z0-9_]*$")
+	reRevokeTokenName  = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 )
 
 type handler struct {
@@ -174,6 +332,13 @@ func Handler(svc Service, auth Auth) http.Handler {
 	mux.HandleFunc("GET /api/v1/tasks/{number}", h.guard("operator", h.getTask))
 	mux.HandleFunc("GET /api/v1/runs", h.guard("operator", h.listRuns))
 	mux.HandleFunc("GET /api/v1/audit", h.guard("operator", h.listAudit))
+	mux.HandleFunc("GET /api/v1/secrets", h.guard("operator", h.listSecrets))
+	mux.HandleFunc("POST /api/v1/secrets", h.guard("admin", h.putSecret))
+	mux.HandleFunc("PUT /api/v1/secrets/{name}", h.guard("admin", h.rotateSecret))
+	mux.HandleFunc("DELETE /api/v1/secrets/{name}", h.guard("admin", h.deleteSecret))
+	mux.HandleFunc("GET /api/v1/tokens", h.guard("operator", h.listTokens))
+	mux.HandleFunc("POST /api/v1/tokens", h.guard("admin", h.issueToken))
+	mux.HandleFunc("POST /api/v1/tokens/{name}/revoke", h.guard("admin", h.revokeToken))
 	return mux
 }
 
@@ -197,6 +362,10 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		writeProblem(w, http.StatusNotFound, "not found", nil)
+	case errors.Is(err, ErrConflict):
+		writeProblem(w, http.StatusConflict, "the request conflicts with the current state", nil)
+	case errors.Is(err, ErrUnprocessable):
+		writeProblem(w, http.StatusUnprocessableEntity, "the request would break a rule", nil)
 	default:
 		writeProblem(w, http.StatusInternalServerError, "internal error", nil)
 	}
@@ -410,4 +579,358 @@ func (h *handler) listAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, encodeRespListAudit(resp))
+}
+
+func (h *handler) listSecrets(w http.ResponseWriter, r *http.Request) {
+	var req ListSecretsRequest
+	p := &problems{}
+	p.in = "query"
+	q := r.URL.Query()
+	{
+		vals := q["expiring"]
+		switch {
+		case len(vals) == 0:
+		case len(vals) > 1:
+			p.add("expiring", "must be given once")
+		default:
+			v, ok := parseBool(vals[0])
+			if !ok {
+				p.add("expiring", "must be true or false")
+				break
+			}
+			req.Expiring = &v
+		}
+	}
+	for _, k := range sortedKeys(q) {
+		switch k {
+		case "expiring":
+		default:
+			p.add(k, "is not a parameter of this route")
+		}
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	resp, err := h.svc.ListSecrets(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, 200, encodeRespListSecrets(resp))
+}
+
+func (h *handler) putSecret(w http.ResponseWriter, r *http.Request) {
+	var req PutSecretRequest
+	p := &problems{}
+	p.in = "query"
+	q := r.URL.Query()
+	for _, k := range sortedKeys(q) {
+		p.add(k, "is not a parameter of this route")
+	}
+	var body bodyPutSecret
+	if readJSON(w, r, &body, p, false) {
+		if body.Name == nil {
+			p.add(join("", "name"), "is required")
+		} else {
+			v := keep[string](*body.Name, join("", "name"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 1:
+				p.add(join("", "name"), "must have at least 1 character")
+			case n > 100:
+				p.add(join("", "name"), "must have at most 100 characters")
+			}
+			if !rePutSecretName.MatchString(v) {
+				p.add(join("", "name"), "must match ^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+			}
+			req.Name = v
+		}
+		if body.Value == nil {
+			p.add(join("", "value"), "is required")
+		} else {
+			v := keep[string](*body.Value, join("", "value"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 1:
+				p.add(join("", "value"), "must have at least 1 character")
+			case n > 65536:
+				p.add(join("", "value"), "must have at most 65536 characters")
+			}
+			req.Value = v
+		}
+		if body.ExpiresOn != nil {
+			v := keep[string](*body.ExpiresOn, join("", "expires_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "expires_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "expires_on"), "must have at most 10 characters")
+			}
+			req.ExpiresOn = &v
+		}
+		if body.RemindOn != nil {
+			v := keep[string](*body.RemindOn, join("", "remind_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "remind_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "remind_on"), "must have at most 10 characters")
+			}
+			req.RemindOn = &v
+		}
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	if err := h.svc.PutSecret(r.Context(), req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) rotateSecret(w http.ResponseWriter, r *http.Request) {
+	var req RotateSecretRequest
+	p := &problems{}
+	p.in = "path"
+	{
+		v := r.PathValue("name")
+		switch n := utf8.RuneCountInString(v); {
+		case n < 1:
+			p.add("name", "must have at least 1 character")
+		case n > 100:
+			p.add("name", "must have at most 100 characters")
+		}
+		if !reRotateSecretName.MatchString(v) {
+			p.add("name", "must match ^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+		}
+		req.Name = v
+	}
+	p.in = "query"
+	q := r.URL.Query()
+	for _, k := range sortedKeys(q) {
+		p.add(k, "is not a parameter of this route")
+	}
+	var body bodyRotateSecret
+	if readJSON(w, r, &body, p, false) {
+		if body.Value == nil {
+			p.add(join("", "value"), "is required")
+		} else {
+			v := keep[string](*body.Value, join("", "value"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 1:
+				p.add(join("", "value"), "must have at least 1 character")
+			case n > 65536:
+				p.add(join("", "value"), "must have at most 65536 characters")
+			}
+			req.Value = v
+		}
+		if body.ExpiresOn != nil {
+			v := keep[string](*body.ExpiresOn, join("", "expires_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "expires_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "expires_on"), "must have at most 10 characters")
+			}
+			req.ExpiresOn = &v
+		}
+		if body.RemindOn != nil {
+			v := keep[string](*body.RemindOn, join("", "remind_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "remind_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "remind_on"), "must have at most 10 characters")
+			}
+			req.RemindOn = &v
+		}
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	if err := h.svc.RotateSecret(r.Context(), req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
+	var req DeleteSecretRequest
+	p := &problems{}
+	p.in = "path"
+	{
+		v := r.PathValue("name")
+		switch n := utf8.RuneCountInString(v); {
+		case n < 1:
+			p.add("name", "must have at least 1 character")
+		case n > 100:
+			p.add("name", "must have at most 100 characters")
+		}
+		if !reDeleteSecretName.MatchString(v) {
+			p.add("name", "must match ^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+		}
+		req.Name = v
+	}
+	p.in = "query"
+	q := r.URL.Query()
+	for _, k := range sortedKeys(q) {
+		p.add(k, "is not a parameter of this route")
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	if err := h.svc.DeleteSecret(r.Context(), req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) listTokens(w http.ResponseWriter, r *http.Request) {
+	var req ListTokensRequest
+	p := &problems{}
+	p.in = "query"
+	q := r.URL.Query()
+	{
+		vals := q["expiring"]
+		switch {
+		case len(vals) == 0:
+		case len(vals) > 1:
+			p.add("expiring", "must be given once")
+		default:
+			v, ok := parseBool(vals[0])
+			if !ok {
+				p.add("expiring", "must be true or false")
+				break
+			}
+			req.Expiring = &v
+		}
+	}
+	for _, k := range sortedKeys(q) {
+		switch k {
+		case "expiring":
+		default:
+			p.add(k, "is not a parameter of this route")
+		}
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	resp, err := h.svc.ListTokens(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, 200, encodeRespListTokens(resp))
+}
+
+func (h *handler) issueToken(w http.ResponseWriter, r *http.Request) {
+	var req IssueTokenRequest
+	p := &problems{}
+	p.in = "query"
+	q := r.URL.Query()
+	for _, k := range sortedKeys(q) {
+		p.add(k, "is not a parameter of this route")
+	}
+	var body bodyIssueToken
+	if readJSON(w, r, &body, p, false) {
+		if body.Name == nil {
+			p.add(join("", "name"), "is required")
+		} else {
+			v := keep[string](*body.Name, join("", "name"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 1:
+				p.add(join("", "name"), "must have at least 1 character")
+			case n > 100:
+				p.add(join("", "name"), "must have at most 100 characters")
+			}
+			if !reIssueTokenName.MatchString(v) {
+				p.add(join("", "name"), "must match ^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+			}
+			req.Name = v
+		}
+		if body.Role == nil {
+			p.add(join("", "role"), "is required")
+		} else {
+			v := keep[string](*body.Role, join("", "role"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 1:
+				p.add(join("", "role"), "must have at least 1 character")
+			case n > 100:
+				p.add(join("", "role"), "must have at most 100 characters")
+			}
+			if !reIssueTokenRole.MatchString(v) {
+				p.add(join("", "role"), "must match ^[a-z][a-z0-9_]*$")
+			}
+			req.Role = v
+		}
+		if body.ExpiresOn != nil {
+			v := keep[string](*body.ExpiresOn, join("", "expires_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "expires_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "expires_on"), "must have at most 10 characters")
+			}
+			req.ExpiresOn = &v
+		}
+		if body.RemindOn != nil {
+			v := keep[string](*body.RemindOn, join("", "remind_on"), p)
+			switch n := utf8.RuneCountInString(v); {
+			case n < 10:
+				p.add(join("", "remind_on"), "must have at least 10 characters")
+			case n > 10:
+				p.add(join("", "remind_on"), "must have at most 10 characters")
+			}
+			req.RemindOn = &v
+		}
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	resp, err := h.svc.IssueToken(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, 201, encodeRespIssueToken(resp))
+}
+
+func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request) {
+	var req RevokeTokenRequest
+	p := &problems{}
+	p.in = "path"
+	{
+		v := r.PathValue("name")
+		switch n := utf8.RuneCountInString(v); {
+		case n < 1:
+			p.add("name", "must have at least 1 character")
+		case n > 100:
+			p.add("name", "must have at most 100 characters")
+		}
+		if !reRevokeTokenName.MatchString(v) {
+			p.add("name", "must match ^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+		}
+		req.Name = v
+	}
+	p.in = "query"
+	q := r.URL.Query()
+	for _, k := range sortedKeys(q) {
+		p.add(k, "is not a parameter of this route")
+	}
+	if p.any() {
+		writeInvalid(w, p)
+		return
+	}
+	if err := h.svc.RevokeToken(r.Context(), req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

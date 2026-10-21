@@ -74,7 +74,7 @@ func TestCheckFailsOnAStaleFileAndGenerateRepairsIt(t *testing.T) {
 	if err := run(context.Background(), []string{"-root", root}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "wrote 12 files") {
+	if !strings.Contains(out.String(), "wrote 14 files") {
 		t.Errorf("output = %q", out.String())
 	}
 	if err := run(context.Background(), []string{"-root", root, "-check"}, &bytes.Buffer{}); err != nil {

@@ -329,6 +329,8 @@ func (g *gen) crossTests(x *w) error {
 	x.f("}{")
 	x.f("{\"not found\", ErrNotFound, http.StatusNotFound},")
 	x.f("{\"wrapped not found\", fmt.Errorf(\"loading: %%w\", ErrNotFound), http.StatusNotFound},")
+	x.f("{\"conflict\", fmt.Errorf(\"storing: %%w\", ErrConflict), http.StatusConflict},")
+	x.f("{\"unprocessable\", fmt.Errorf(\"checking: %%w\", ErrUnprocessable), http.StatusUnprocessableEntity},")
 	for _, c := range hasStatefulErrors(g) {
 		pkg := pkgOf(c)
 		x.f("{\"%s forbidden\", %s.ErrForbidden, http.StatusConflict},", c, pkg)

@@ -310,3 +310,66 @@ func freeAddr(t *testing.T) string {
 	defer ln.Close()
 	return ln.Addr().String()
 }
+
+func TestWrongMasterKeyIsCaughtBeforeAnythingIsSealedOrServed(t *testing.T) {
+	cfg, dbPath := operatorJSON(t, func(s string) string { return s })
+	right := credentials(t, goodKey, 0o400)
+	wrong := credentials(t, strings.Repeat("ab", 32), 0o400)
+	if _, err := command(t, cfg, right, "kept-value", "secret", "put", "KEPT"); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, args := range map[string][]string{
+		"serve":  nil,
+		"put":    {"secret", "put", "NEW"},
+		"rotate": {"secret", "rotate", "KEPT"},
+	} {
+		_, err := command(t, cfg, wrong, "new-value", args...)
+		if err == nil || !strings.Contains(err.Error(), "1 of the stored secrets do not open (KEPT)") {
+			t.Errorf("%s under the wrong key: %v", name, err)
+		}
+		if err != nil && strings.Contains(err.Error(), "value") {
+			t.Errorf("%s: the error holds a value: %v", name, err)
+		}
+	}
+
+	// What needs no key still works, so a lost key does not lock the operator out.
+	if out, err := command(t, cfg, wrong, "", "credentials"); err != nil || !strings.Contains(out, "KEPT") {
+		t.Errorf("credentials: %q, %v", out, err)
+	}
+	if _, err := command(t, cfg, wrong, "", "secret", "delete", "KEPT"); err != nil {
+		t.Errorf("delete: %v", err)
+	}
+	if _, err := command(t, cfg, wrong, "v", "secret", "put", "AFTER"); err != nil {
+		t.Errorf("put after the unreadable secret is gone: %v", err)
+	}
+
+	// Nothing the refused commands tried to do was kept.
+	s, err := store.Open(context.Background(), dbPath, events.New(), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	log, _ := s.ListAudit(context.Background(), 20)
+	var actions []string
+	for i := len(log) - 1; i >= 0; i-- {
+		actions = append(actions, log[i].Action+" "+log[i].Subject)
+	}
+	if want := "secret.put KEPT,secret.delete KEPT,secret.put AFTER"; strings.Join(actions, ",") != want {
+		t.Errorf("audit = %v", actions)
+	}
+}
+
+func TestTokenRolesFromTheCommand(t *testing.T) {
+	cfg, _ := operatorJSON(t, func(s string) string { return s })
+	creds := credentials(t, goodKey, 0o400)
+	for _, role := range []string{"operator", "admin"} {
+		if _, err := command(t, cfg, creds, "", "token", "create", "t-"+role, "-role", role); err != nil {
+			t.Errorf("role %s: %v", role, err)
+		}
+	}
+	out, _ := command(t, cfg, creds, "", "credentials")
+	if !strings.Contains(out, "admin") || !strings.Contains(out, "operator") {
+		t.Errorf("credentials:\n%s", out)
+	}
+}

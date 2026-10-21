@@ -3,10 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/routing"
+	"github.com/briolink/briolink/control/server"
+	"github.com/briolink/briolink/control/vault"
 	"github.com/briolink/briolink/gen/domain/control"
 	api "github.com/briolink/briolink/gen/http"
 	"github.com/briolink/briolink/port/codehost"
@@ -196,5 +200,128 @@ func TestRunsAndAuditUseThePageSize(t *testing.T) {
 	}
 	if _, err := s.ListRuns(ctx, api.ListRunsRequest{}); err == nil {
 		t.Error("a database failure was swallowed")
+	}
+}
+
+type creds struct{ calls []string }
+
+func (c *creds) note(s string) error { c.calls = append(c.calls, s); return nil }
+func (c *creds) Put(_ context.Context, actor, name string, _ []byte, _ vault.Dates) error {
+	return c.note("put " + actor + " " + name)
+}
+func (c *creds) Rotate(_ context.Context, actor, name string, _ []byte, _ vault.Dates) error {
+	return c.note("rotate " + actor + " " + name)
+}
+func (c *creds) Delete(_ context.Context, actor, name string) error {
+	return c.note("delete " + actor + " " + name)
+}
+func (c *creds) List(context.Context) ([]vault.Entry, error) {
+	return []vault.Entry{{Kind: "secret", Name: "s"}, {Kind: "token", Name: "t", Role: "operator"}}, c.note("list")
+}
+func (c *creds) Expiring(context.Context) ([]vault.Entry, error) {
+	return []vault.Entry{{Kind: "token", Name: "soon"}}, c.note("expiring")
+}
+func (c *creds) CreateToken(_ context.Context, actor, name, role string, _ vault.Dates) (string, error) {
+	return "blk_x", c.note("create " + actor + " " + name + " " + role)
+}
+func (c *creds) RevokeToken(_ context.Context, actor, name string) error {
+	return c.note("revoke " + actor + " " + name)
+}
+
+func TestCredentialChangesNameTheCallerAndNeedOne(t *testing.T) {
+	s, _, _ := newService(t)
+	c := &creds{}
+	s.Credentials = c
+	bg := context.Background()
+	as := server.WithActor(bg, "ci")
+	d := "2027-01-01"
+
+	changes := map[string]func(context.Context) error{
+		"put": func(ctx context.Context) error {
+			return s.PutSecret(ctx, api.PutSecretRequest{Name: "A", Value: "v", ExpiresOn: &d})
+		},
+		"rotate": func(ctx context.Context) error {
+			return s.RotateSecret(ctx, api.RotateSecretRequest{Name: "A", Value: "v"})
+		},
+		"delete": func(ctx context.Context) error { return s.DeleteSecret(ctx, api.DeleteSecretRequest{Name: "A"}) },
+		"create": func(ctx context.Context) error {
+			_, err := s.IssueToken(ctx, api.IssueTokenRequest{Name: "A", Role: "operator"})
+			return err
+		},
+		"revoke": func(ctx context.Context) error { return s.RevokeToken(ctx, api.RevokeTokenRequest{Name: "A"}) },
+	}
+	for verb, f := range changes {
+		if err := f(bg); !errors.Is(err, errNoActor) {
+			t.Errorf("%s without a caller: %v", verb, err)
+		}
+		if err := f(as); err != nil {
+			t.Errorf("%s: %v", verb, err)
+		}
+	}
+	if len(c.calls) != len(changes) {
+		t.Fatalf("calls = %v: a change was made without a caller, or one was missed", c.calls)
+	}
+	for _, call := range c.calls {
+		if !strings.Contains(call, " token:ci A") {
+			t.Errorf("call %q does not name the caller", call)
+		}
+	}
+}
+
+func TestCredentialRoutesRefuseWhatCredentialProblemRefuses(t *testing.T) {
+	s, _, _ := newService(t)
+	c := &creds{}
+	s.Credentials = c
+	ctx := server.WithActor(context.Background(), "ci")
+	bad, after := "2027-02-30", "2027-03-01"
+	for name, err := range map[string]error{
+		"put":    s.PutSecret(ctx, api.PutSecretRequest{Name: "A", Value: "v", ExpiresOn: &bad}),
+		"rotate": s.RotateSecret(ctx, api.RotateSecretRequest{Name: "A", Value: "v", ExpiresOn: &after, RemindOn: &after}),
+		"delete": s.DeleteSecret(ctx, api.DeleteSecretRequest{Name: "has space"}),
+		"revoke": s.RevokeToken(ctx, api.RevokeTokenRequest{Name: ""}),
+	} {
+		if !errors.Is(err, api.ErrUnprocessable) && name != "rotate" {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if len(c.calls) != 1 { // only the rotate with the reminder on the expiry day is acceptable
+		t.Errorf("calls = %v", c.calls)
+	}
+}
+
+func TestMapVault(t *testing.T) {
+	for in, want := range map[error]error{vault.ErrNotFound: api.ErrNotFound, vault.ErrExists: api.ErrConflict, vault.ErrInvalid: api.ErrUnprocessable} {
+		if got := mapVault(fmt.Errorf("wrapped: %w", in)); !errors.Is(got, want) {
+			t.Errorf("%v became %v, want %v", in, got, want)
+		}
+	}
+	if mapVault(nil) != nil {
+		t.Error("nil became an error")
+	}
+	for _, other := range []error{vault.ErrWrongKey, vault.ErrDenied, errors.New("disk")} {
+		if got := mapVault(other); got != other {
+			t.Errorf("%v was changed to %v", other, got)
+		}
+	}
+}
+
+func TestCredentialListsKeepTheirKind(t *testing.T) {
+	s, _, _ := newService(t)
+	c := &creds{}
+	s.Credentials = c
+	ctx := context.Background()
+	yes, no := true, false
+	sec, _ := s.ListSecrets(ctx, api.ListSecretsRequest{})
+	tok, _ := s.ListTokens(ctx, api.ListTokensRequest{Expiring: &no})
+	if len(sec.Secrets) != 1 || sec.Secrets[0].Name != "s" || len(tok.Tokens) != 1 || tok.Tokens[0].Role != "operator" {
+		t.Errorf("lists = %+v / %+v", sec, tok)
+	}
+	soon, _ := s.ListTokens(ctx, api.ListTokensRequest{Expiring: &yes})
+	none, _ := s.ListSecrets(ctx, api.ListSecretsRequest{Expiring: &yes})
+	if len(soon.Tokens) != 1 || soon.Tokens[0].Name != "soon" || len(none.Secrets) != 0 {
+		t.Errorf("expiring = %+v / %+v", soon, none)
+	}
+	if strings.Join(c.calls, ",") != "list,list,expiring,expiring" {
+		t.Errorf("calls = %v", c.calls)
 	}
 }

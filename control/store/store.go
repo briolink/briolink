@@ -67,6 +67,22 @@ func Open(ctx context.Context, path string, pub Publisher, now func() time.Time)
 // (control/vault). Their writes are audited through Audit.
 func (s *Store) DB() *sql.DB { return s.db }
 
+// AuditTx appends an audit line inside tx, so a change and its record commit
+// together or not at all. The event is published by the returned function,
+// which the caller runs after tx has committed.
+func (s *Store) AuditTx(ctx context.Context, tx *sql.Tx, actor, action, subject, detail string) (publish func(), err error) {
+	if actor == "" || action == "" {
+		return nil, fmt.Errorf("%w: an audit entry needs an actor and an action", ErrInvalid)
+	}
+	at := s.now().UTC()
+	row, err := sqlitegen.New(tx).InsertAudit(ctx, formatTime(at), actor, action, subject, detail)
+	if err != nil {
+		return nil, err
+	}
+	e := control.AuditEntry{Id: row.Id, At: at, Actor: actor, Action: action, Subject: subject, Detail: detail}
+	return func() { s.pub.Publish("audit", auditEvent{e.Id, e.At, e.Actor, e.Action, e.Subject, e.Detail}) }, nil
+}
+
 // Audit is AddAudit without the entry, for callers that only log.
 func (s *Store) Audit(ctx context.Context, actor, action, subject, detail string) error {
 	_, err := s.AddAudit(ctx, actor, action, subject, detail)

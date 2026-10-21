@@ -3,6 +3,7 @@ package vault_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/control/events"
+	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/store"
 	"github.com/briolink/briolink/control/vault"
 )
@@ -294,6 +296,10 @@ func (failing) Audit(context.Context, string, string, string, string) error {
 	return errors.New("log full")
 }
 
+func (failing) AuditTx(context.Context, *sql.Tx, string, string, string, string) (func(), error) {
+	return nil, errors.New("log full")
+}
+
 func TestATokenUseThatCannotBeRecordedIsRefused(t *testing.T) {
 	r := open(t)
 	tok, _ := r.v.CreateToken(ctx, "cli", "ci", "operator", vault.Dates{})
@@ -352,5 +358,91 @@ func TestSurvivesReopen(t *testing.T) {
 	}
 	if _, _, err := v.Authenticate(ctx, tok, "GET /x"); err != nil {
 		t.Error(err)
+	}
+}
+
+// The store enforces what the credential routes check first with the pure
+// function credential_problem: the two must agree on a name and dates.
+func TestVaultAgreesWithCredentialProblem(t *testing.T) {
+	r := open(t)
+	long := strings.Repeat("a", 101)
+	i := 0
+	for _, tc := range []struct{ name, expires, remind string }{
+		{"CF_API_TOKEN", "", ""}, {"a", "", ""}, {long[:100], "", ""}, {long, "", ""}, {"", "", ""}, {"a b", "", ""}, {"a\tb", "", ""}, {"é", "", ""},
+		{"a", "2027-10-17", "2027-09-17"}, {"a", "2027-10-17", "2027-10-17"}, {"a", "", "2027-09-17"}, {"a", "2028-02-29", ""},
+		{"a", "2027-02-29", ""}, {"a", "2027-13-01", ""}, {"a", "soon", ""}, {"a", "2027-1-7", ""}, {"a", "", "2027-02-30"}, {"a", "2027-09-17", "2027-10-17"},
+	} {
+		i++
+		name := tc.name
+		if name != "" && len(name) <= 100 { // a fresh name each time, so only the rules can refuse
+			name = strings.Repeat("n", i) + name
+			name = name[:min(len(name), 100)]
+		}
+		want := (logic.Impl{}).CredentialProblem(name, tc.expires, tc.remind) == ""
+		err := r.v.Put(ctx, "test", name, []byte("v"), vault.Dates{ExpiresOn: tc.expires, RemindOn: tc.remind})
+		if got := err == nil; got != want {
+			t.Errorf("%+v: the vault accepts = %v (%v), credential_problem accepts = %v", tc, got, err, want)
+		}
+		_, tokenErr := r.v.CreateToken(ctx, "test", name, "operator", vault.Dates{ExpiresOn: tc.expires, RemindOn: tc.remind})
+		if got := tokenErr == nil; got != want {
+			t.Errorf("%+v: the vault issues = %v (%v), credential_problem accepts = %v", tc, got, tokenErr, want)
+		}
+	}
+}
+
+func TestAChangeWithoutItsAuditLineDoesNotHappen(t *testing.T) {
+	r := open(t)
+	r.v.Put(ctx, "cli", "S", []byte("old"), vault.Dates{})
+	tok, _ := r.v.CreateToken(ctx, "cli", "ci", "operator", vault.Dates{})
+	v, _ := vault.New(r.st.DB(), key1, failing{}, []string{"operator"}, func() time.Time { return now })
+
+	for name, f := range map[string]func() error{
+		"put":    func() error { return v.Put(ctx, "x", "NEW", []byte("v"), vault.Dates{}) },
+		"rotate": func() error { return v.Rotate(ctx, "x", "S", []byte("new"), vault.Dates{}) },
+		"delete": func() error { return v.Delete(ctx, "x", "S") },
+		"issue": func() error {
+			_, err := v.CreateToken(ctx, "x", "other", "operator", vault.Dates{})
+			return err
+		},
+		"revoke": func() error { return v.RevokeToken(ctx, "x", "ci") },
+	} {
+		if err := f(); err == nil || !strings.Contains(err.Error(), "log full") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	list, _ := r.v.List(ctx)
+	if len(list) != 2 {
+		t.Errorf("a change was kept without its line: %+v", list)
+	}
+	if got, err := r.v.Use(ctx, "x", "S"); err != nil || string(got) != "old" {
+		t.Errorf("S = %q, %v", got, err)
+	}
+	if _, _, err := r.v.Authenticate(ctx, tok, "GET /x"); err != nil {
+		t.Errorf("the token was revoked without a line: %v", err)
+	}
+}
+
+func TestVerify(t *testing.T) {
+	r := open(t)
+	if err := r.v.Verify(ctx); err != nil {
+		t.Errorf("an empty vault: %v", err)
+	}
+	r.v.Put(ctx, "cli", "A", []byte("a"), vault.Dates{})
+	r.v.Put(ctx, "cli", "B", []byte("b-secret-value"), vault.Dates{})
+	if err := r.v.Verify(ctx); err != nil {
+		t.Errorf("the right key: %v", err)
+	}
+	err := r.withKey(t, key2).Verify(ctx)
+	if !errors.Is(err, vault.ErrWrongKey) || !strings.Contains(err.Error(), "2 of the stored secrets") || !strings.Contains(err.Error(), "A, B") {
+		t.Errorf("the wrong key: %v", err)
+	}
+	if strings.Contains(err.Error(), "b-secret-value") {
+		t.Errorf("Verify leaks a value: %v", err)
+	}
+	// One secret sealed under another key is found among good ones.
+	other := r.withKey(t, key2)
+	other.Put(ctx, "cli", "C", []byte("c"), vault.Dates{})
+	if err := r.v.Verify(ctx); err == nil || !strings.Contains(err.Error(), "1 of the stored secrets") || !strings.Contains(err.Error(), "(C)") {
+		t.Errorf("one bad secret: %v", err)
 	}
 }

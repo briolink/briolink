@@ -10,7 +10,8 @@
     {"term": "TaskState", "meaning": "Where a task stands, from the issue's state label"},
     {"term": "RunRecord", "meaning": "What the runner records about one attempt at a task: the tier, the routing row that chose it, the model used and the outcome"},
     {"term": "RunOutcome", "meaning": "How a run ended, or running while it has not"},
-    {"term": "AuditEntry", "meaning": "One line of the append-only audit log: who did what to which subject, and when"}
+    {"term": "AuditEntry", "meaning": "One line of the append-only audit log: who did what to which subject, and when"},
+    {"term": "Credential", "meaning": "A secret or an API token as the control plane may show it: its name, dates and state, never its value"}
   ],
   "enums": [
     {"name": "TaskState", "doc": "The state label of an issue, with hyphens as underscores", "values": [
@@ -57,6 +58,16 @@
       {"name": "action", "type": "string", "doc": ""},
       {"name": "subject", "type": "string", "doc": ""},
       {"name": "detail", "type": "string", "doc": ""}
+    ]},
+    {"name": "Credential", "doc": "Never carries a secret's value or a token", "fields": [
+      {"name": "kind", "type": "string", "doc": "secret or token"},
+      {"name": "name", "type": "string", "doc": ""},
+      {"name": "role", "type": "string", "doc": "The role a token acts as; empty for a secret"},
+      {"name": "created_at", "type": "string", "doc": "RFC 3339"},
+      {"name": "rotated_at", "type": "string", "doc": "RFC 3339; empty for a token"},
+      {"name": "expires_on", "type": "string", "doc": "YYYY-MM-DD; empty if none"},
+      {"name": "remind_on", "type": "string", "doc": "YYYY-MM-DD; empty if none"},
+      {"name": "revoked", "type": "bool", "doc": "A token that no longer authenticates"}
     ]}
   ],
   "entities": [],
@@ -89,6 +100,31 @@
        "Returns 50 when limit is 0 or negative",
        "Returns 200 when limit is above 200",
        "Otherwise returns limit"
+     ]},
+    {"name": "credentials_of_kind", "kind": "pure", "doc": "The secrets or the tokens of a credential list",
+     "params": [
+       {"name": "credentials", "type": "[]Credential", "doc": ""},
+       {"name": "kind", "type": "string", "doc": "secret or token"}
+     ],
+     "returns": [{"name": "credentials", "type": "[]Credential", "doc": ""}],
+     "rules": [
+       "Returns the credentials whose kind is the given one, in their order",
+       "Returns an empty list, not nothing, when there are none",
+       "Does not change its argument"
+     ]},
+    {"name": "credential_problem", "kind": "pure", "doc": "Whether a credential's name and dates are acceptable",
+     "params": [
+       {"name": "name", "type": "string", "doc": ""},
+       {"name": "expires_on", "type": "string", "doc": "Empty for none"},
+       {"name": "remind_on", "type": "string", "doc": "Empty for none"}
+     ],
+     "returns": [{"name": "problem", "type": "string", "doc": "Empty when acceptable"}],
+     "rules": [
+       "A name is acceptable when it has 1 to 100 characters, each a printable ASCII character other than a space",
+       "A date is acceptable when it is empty or a real calendar date written YYYY-MM-DD",
+       "A reminder is acceptable when it is not after the expiry; with no expiry any acceptable reminder is",
+       "Returns an empty string when the name and both dates are acceptable; otherwise a short sentence for the first problem, in the order name, expiry, reminder, reminder against expiry",
+       "The sentence never repeats the name or a date"
      ]}
   ]
 }

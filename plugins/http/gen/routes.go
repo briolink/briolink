@@ -54,9 +54,11 @@ func (g *gen) routesFile() string {
 	x.f("// Service is what the routes call: one method per route, taking the")
 	x.f("// validated request and returning the response. The project implements it;")
 	x.f("// each method does what its route's call names. Return ErrNotFound when")
-	x.f("// something the request names does not exist; the domain package's")
-	x.f("// ErrForbidden and ErrNoTransition (409) and InvariantError (422) are")
-	x.f("// mapped too. Any other error is a 500 that says nothing about its cause.")
+	x.f("// something the request names does not exist, ErrConflict (409) when it")
+	x.f("// clashes with the current state and ErrUnprocessable (422) when a rule")
+	x.f("// refuses it; the domain package's ErrForbidden and ErrNoTransition (409)")
+	x.f("// and InvariantError (422) are mapped too. Any other error is a 500 that")
+	x.f("// says nothing about its cause.")
 	x.f("type Service interface {")
 	for _, rt := range rs {
 		x.f("// %s runs %s in %s: %s %s, as %s.", methodName(rt), rt.Call, rt.Context, rt.Method, g.fullPath(rt), rt.Role)
@@ -127,17 +129,15 @@ func (g *gen) routesFile() string {
 	x.f("switch {")
 	x.f("case errors.Is(err, ErrNotFound):")
 	x.f("writeProblem(w, http.StatusNotFound, \"not found\", nil)")
-	if len(cs) > 0 {
-		var conflict, invariant []string
-		for _, c := range cs {
-			conflict = append(conflict, fmt.Sprintf("errors.Is(err, %s.ErrForbidden)", pkgOf(c)), fmt.Sprintf("errors.Is(err, %s.ErrNoTransition)", pkgOf(c)))
-			invariant = append(invariant, "isInvariant"+pascal(c)+"(err)")
-		}
-		x.f("case %s:", strings.Join(conflict, ", "))
-		x.f("writeProblem(w, http.StatusConflict, \"the request conflicts with the current state\", nil)")
-		x.f("case %s:", strings.Join(invariant, ", "))
-		x.f("writeProblem(w, http.StatusUnprocessableEntity, \"the request would break a rule of the model\", nil)")
+	conflict, invariant := []string{"errors.Is(err, ErrConflict)"}, []string{"errors.Is(err, ErrUnprocessable)"}
+	for _, c := range cs {
+		conflict = append(conflict, fmt.Sprintf("errors.Is(err, %s.ErrForbidden)", pkgOf(c)), fmt.Sprintf("errors.Is(err, %s.ErrNoTransition)", pkgOf(c)))
+		invariant = append(invariant, "isInvariant"+pascal(c)+"(err)")
 	}
+	x.f("case %s:", strings.Join(conflict, ", "))
+	x.f("writeProblem(w, http.StatusConflict, \"the request conflicts with the current state\", nil)")
+	x.f("case %s:", strings.Join(invariant, ", "))
+	x.f("writeProblem(w, http.StatusUnprocessableEntity, \"the request would break a rule\", nil)")
 	x.f("default:")
 	x.f("writeProblem(w, http.StatusInternalServerError, \"internal error\", nil)")
 	x.f("}")

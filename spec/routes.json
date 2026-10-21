@@ -1,6 +1,6 @@
 {
   "format": "v0",
-  "roles": ["operator"],
+  "roles": ["operator", "admin"],
   "routes": [
     {"name": "get_routing", "method": "GET", "path": "/routing", "role": "operator",
      "context": "control", "call": "routing_view", "status": 200,
@@ -27,6 +27,49 @@
     {"name": "list_audit", "method": "GET", "path": "/audit", "role": "operator",
      "context": "control", "call": "page_size", "status": 200,
      "request": [{"name": "limit", "in": "query", "type": "?int", "min": 1, "max": null, "pattern": "", "doc": "Default 50, at most 200"}],
-     "response": [{"name": "entries", "type": "[]AuditEntry", "doc": "Newest first"}]}
+     "response": [{"name": "entries", "type": "[]AuditEntry", "doc": "Newest first"}]},
+    {"name": "list_secrets", "method": "GET", "path": "/secrets", "role": "operator",
+     "context": "control", "call": "credentials_of_kind", "status": 200,
+     "request": [{"name": "expiring", "in": "query", "type": "?bool", "min": null, "max": null, "pattern": "", "doc": "Only those whose reminder has come or that expire within 30 days"}],
+     "response": [{"name": "secrets", "type": "[]Credential", "doc": "By name; the names and dates, never the values"}]},
+    {"name": "put_secret", "method": "POST", "path": "/secrets", "role": "admin",
+     "context": "control", "call": "credential_problem", "status": 204,
+     "request": [
+       {"name": "name", "in": "body", "type": "string", "min": 1, "max": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "doc": "The credential's name"},
+       {"name": "value", "in": "body", "type": "string", "min": 1, "max": 65536, "pattern": "", "doc": "The secret. Never returned, logged or audited"},
+       {"name": "expires_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD"},
+       {"name": "remind_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD, not after expires_on"}
+     ],
+     "response": []},
+    {"name": "rotate_secret", "method": "PUT", "path": "/secrets/{name}", "role": "admin",
+     "context": "control", "call": "credential_problem", "status": 204,
+     "request": [
+       {"name": "name", "in": "path", "type": "string", "min": 1, "max": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "doc": "The credential's name"},
+       {"name": "value", "in": "body", "type": "string", "min": 1, "max": 65536, "pattern": "", "doc": "The secret. Never returned, logged or audited"},
+       {"name": "expires_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD"},
+       {"name": "remind_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD, not after expires_on"}
+     ],
+     "response": []},
+    {"name": "delete_secret", "method": "DELETE", "path": "/secrets/{name}", "role": "admin",
+     "context": "control", "call": "credential_problem", "status": 204,
+     "request": [{"name": "name", "in": "path", "type": "string", "min": 1, "max": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "doc": "The credential's name"}],
+     "response": []},
+    {"name": "list_tokens", "method": "GET", "path": "/tokens", "role": "operator",
+     "context": "control", "call": "credentials_of_kind", "status": 200,
+     "request": [{"name": "expiring", "in": "query", "type": "?bool", "min": null, "max": null, "pattern": "", "doc": "Only those whose reminder has come or that expire within 30 days"}],
+     "response": [{"name": "tokens", "type": "[]Credential", "doc": "By name; revoked ones included, marked"}]},
+    {"name": "issue_token", "method": "POST", "path": "/tokens", "role": "admin",
+     "context": "control", "call": "credential_problem", "status": 201,
+     "request": [
+       {"name": "name", "in": "body", "type": "string", "min": 1, "max": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "doc": "The credential's name"},
+       {"name": "role", "in": "body", "type": "string", "min": 1, "max": 100, "pattern": "^[a-z][a-z0-9_]*$", "doc": "The role the token acts as"},
+       {"name": "expires_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD"},
+       {"name": "remind_on", "in": "body", "type": "?string", "min": 10, "max": 10, "pattern": "", "doc": "YYYY-MM-DD, not after expires_on"}
+     ],
+     "response": [{"name": "token", "type": "string", "doc": "The token, in this answer only: only its hash is kept"}]},
+    {"name": "revoke_token", "method": "POST", "path": "/tokens/{name}/revoke", "role": "admin",
+     "context": "control", "call": "credential_problem", "status": 204,
+     "request": [{"name": "name", "in": "path", "type": "string", "min": 1, "max": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "doc": "The credential's name"}],
+     "response": []}
   ]
 }

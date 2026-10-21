@@ -22,4 +22,16 @@ type Funcs interface {
 	// - Returns 200 when limit is above 200
 	// - Otherwise returns limit
 	PageSize(limit int64) int64
+	// CredentialsOfKind (pure)
+	// - Returns the credentials whose kind is the given one, in their order
+	// - Returns an empty list, not nothing, when there are none
+	// - Does not change its argument
+	CredentialsOfKind(credentials []Credential, kind string) []Credential
+	// CredentialProblem (pure)
+	// - A name is acceptable when it has 1 to 100 characters, each a printable ASCII character other than a space
+	// - A date is acceptable when it is empty or a real calendar date written YYYY-MM-DD
+	// - A reminder is acceptable when it is not after the expiry; with no expiry any acceptable reminder is
+	// - Returns an empty string when the name and both dates are acceptable; otherwise a short sentence for the first problem, in the order name, expiry, reminder, reminder against expiry
+	// - The sentence never repeats the name or a date
+	CredentialProblem(name string, expires_on string, remind_on string) string
 }

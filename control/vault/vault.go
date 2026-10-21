@@ -40,9 +40,33 @@ var (
 
 const dateLayout = "2006-01-02"
 
-// Auditor appends to the audit log. *store.Store is one.
+// Auditor appends to the audit log. *store.Store is one. A change to the
+// vault is recorded with AuditTx, in the transaction that makes the change.
 type Auditor interface {
 	Audit(ctx context.Context, actor, action, subject, detail string) error
+	AuditTx(ctx context.Context, tx *sql.Tx, actor, action, subject, detail string) (publish func(), err error)
+}
+
+// change runs fn and records it in the audit log in one transaction: if
+// either fails, neither happens. The audit event is published after the commit.
+func (v *Vault) change(ctx context.Context, actor, action, subject, detail string, fn func(tx *sql.Tx) error) error {
+	tx, err := v.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	publish, err := v.audit.AuditTx(ctx, tx, actor, action, subject, detail)
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	publish()
+	return nil
 }
 
 // Vault is the secret store and token table over the control plane's database.
@@ -156,18 +180,18 @@ func (v *Vault) Put(ctx context.Context, actor, name string, value []byte, d Dat
 		return err
 	}
 	now := v.stamp()
-	_, err = v.db.ExecContext(ctx, `INSERT INTO secrets (name, sealed, created_at, rotated_at, expires_on, remind_on) VALUES (?, ?, ?, ?, ?, ?)`,
-		name, sealed, now, now, d.ExpiresOn, d.RemindOn)
-	if err != nil {
+	return v.change(ctx, actor, "secret.put", name, datesDetail(d), func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO secrets (name, sealed, created_at, rotated_at, expires_on, remind_on) VALUES (?, ?, ?, ?, ?, ?)`,
+			name, sealed, now, now, d.ExpiresOn, d.RemindOn)
 		if isUnique(err) {
 			return fmt.Errorf("%w: secret %s", ErrExists, name)
 		}
 		return err
-	}
-	return v.audit.Audit(ctx, actor, "secret.put", name, datesDetail(d))
+	})
 }
 
-// Rotate replaces a secret's value and dates.
+// Rotate replaces a secret's value and its dates: a date not given is cleared,
+// not kept.
 func (v *Vault) Rotate(ctx context.Context, actor, name string, value []byte, d Dates) error {
 	if len(value) == 0 {
 		return fmt.Errorf("%w: a secret needs a value", ErrInvalid)
@@ -179,27 +203,31 @@ func (v *Vault) Rotate(ctx context.Context, actor, name string, value []byte, d 
 	if err != nil {
 		return err
 	}
-	res, err := v.db.ExecContext(ctx, `UPDATE secrets SET sealed = ?, rotated_at = ?, expires_on = ?, remind_on = ? WHERE name = ?`,
-		sealed, v.stamp(), d.ExpiresOn, d.RemindOn, name)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: secret %s", ErrNotFound, name)
-	}
-	return v.audit.Audit(ctx, actor, "secret.rotate", name, datesDetail(d))
+	return v.change(ctx, actor, "secret.rotate", name, datesDetail(d), func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `UPDATE secrets SET sealed = ?, rotated_at = ?, expires_on = ?, remind_on = ? WHERE name = ?`,
+			sealed, v.stamp(), d.ExpiresOn, d.RemindOn, name)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("%w: secret %s", ErrNotFound, name)
+		}
+		return nil
+	})
 }
 
 // Delete removes a secret.
 func (v *Vault) Delete(ctx context.Context, actor, name string) error {
-	res, err := v.db.ExecContext(ctx, `DELETE FROM secrets WHERE name = ?`, name)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: secret %s", ErrNotFound, name)
-	}
-	return v.audit.Audit(ctx, actor, "secret.delete", name, "")
+	return v.change(ctx, actor, "secret.delete", name, "", func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `DELETE FROM secrets WHERE name = ?`, name)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("%w: secret %s", ErrNotFound, name)
+		}
+		return nil
+	})
 }
 
 // Use opens a secret for an adapter that needs its value, and records the
@@ -221,6 +249,38 @@ func (v *Vault) Use(ctx context.Context, actor, name string) ([]byte, error) {
 		return nil, err
 	}
 	return plain, nil
+}
+
+// Verify opens every stored secret under the master key and reports the names
+// of those that do not open (never a value). It is the check that the key in
+// hand is the key the secrets were sealed with: the control plane runs it
+// before it serves, and before a command seals something new under the key.
+func (v *Vault) Verify(ctx context.Context) error {
+	rows, err := v.db.QueryContext(ctx, `SELECT name, sealed FROM secrets ORDER BY name`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var bad []string
+	for rows.Next() {
+		var (
+			name   string
+			sealed []byte
+		)
+		if err := rows.Scan(&name, &sealed); err != nil {
+			return err
+		}
+		if _, err := v.open(name, sealed); err != nil {
+			bad = append(bad, name)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("%w: %d of the stored secrets do not open (%s)", ErrWrongKey, len(bad), strings.Join(bad, ", "))
+	}
+	return nil
 }
 
 // Entry is what is known of a secret or token without its value.
@@ -313,15 +373,16 @@ func (v *Vault) CreateToken(ctx context.Context, actor, name, role string, d Dat
 	}
 	token := "blk_" + base64.RawURLEncoding.EncodeToString(raw)
 	sum := sha256.Sum256([]byte(token))
-	_, err := v.db.ExecContext(ctx, `INSERT INTO tokens (name, hash, role, created_at, expires_on, remind_on, revoked_at) VALUES (?, ?, ?, ?, ?, ?, '')`,
-		name, sum[:], role, v.stamp(), d.ExpiresOn, d.RemindOn)
-	if err != nil {
+	detail := strings.TrimSuffix("role "+role+"; "+datesDetail(d), "; ")
+	err := v.change(ctx, actor, "token.create", name, detail, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO tokens (name, hash, role, created_at, expires_on, remind_on, revoked_at) VALUES (?, ?, ?, ?, ?, ?, '')`,
+			name, sum[:], role, v.stamp(), d.ExpiresOn, d.RemindOn)
 		if isUnique(err) {
-			return "", fmt.Errorf("%w: token %s", ErrExists, name)
+			return fmt.Errorf("%w: token %s", ErrExists, name)
 		}
-		return "", err
-	}
-	if err := v.audit.Audit(ctx, actor, "token.create", name, strings.TrimSuffix("role "+role+"; "+datesDetail(d), "; ")); err != nil {
+		return err
+	})
+	if err != nil {
 		return "", err
 	}
 	return token, nil
@@ -329,14 +390,16 @@ func (v *Vault) CreateToken(ctx context.Context, actor, name, role string, d Dat
 
 // RevokeToken stops a token from authenticating. Revoking twice is not an error.
 func (v *Vault) RevokeToken(ctx context.Context, actor, name string) error {
-	res, err := v.db.ExecContext(ctx, `UPDATE tokens SET revoked_at = CASE WHEN revoked_at = '' THEN ? ELSE revoked_at END WHERE name = ?`, v.stamp(), name)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: token %s", ErrNotFound, name)
-	}
-	return v.audit.Audit(ctx, actor, "token.revoke", name, "")
+	return v.change(ctx, actor, "token.revoke", name, "", func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `UPDATE tokens SET revoked_at = CASE WHEN revoked_at = '' THEN ? ELSE revoked_at END WHERE name = ?`, v.stamp(), name)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("%w: token %s", ErrNotFound, name)
+		}
+		return nil
+	})
 }
 
 // Authenticate checks a presented token and returns the role it acts as and

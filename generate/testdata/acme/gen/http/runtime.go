@@ -25,6 +25,16 @@ type Auth func(r *http.Request) (role string, ok bool)
 // names does not exist: the response is 404.
 var ErrNotFound = errors.New("not found")
 
+// ErrConflict is what a Service returns (or wraps) when the request clashes
+// with the current state of what it names, such as a name already taken: the
+// response is 409.
+var ErrConflict = errors.New("conflict")
+
+// ErrUnprocessable is what a Service returns (or wraps) when the request is
+// well formed but a rule the spec cannot state refuses it: the response is
+// 422. The response does not repeat the error's text.
+var ErrUnprocessable = errors.New("unprocessable")
+
 // maxBody is the largest JSON body a route reads.
 const maxBody = 1 << 20
 

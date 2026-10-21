@@ -15,9 +15,11 @@ import (
 // Service is what the routes call: one method per route, taking the
 // validated request and returning the response. The project implements it;
 // each method does what its route's call names. Return ErrNotFound when
-// something the request names does not exist; the domain package's
-// ErrForbidden and ErrNoTransition (409) and InvariantError (422) are
-// mapped too. Any other error is a 500 that says nothing about its cause.
+// something the request names does not exist, ErrConflict (409) when it
+// clashes with the current state and ErrUnprocessable (422) when a rule
+// refuses it; the domain package's ErrForbidden and ErrNoTransition (409)
+// and InvariantError (422) are mapped too. Any other error is a 500 that
+// says nothing about its cause.
 type Service interface {
 	// CreateInvoice runs new_invoice in acme: POST /invoices, as member.
 	CreateInvoice(ctx context.Context, req CreateInvoiceRequest) (CreateInvoiceResponse, error)
@@ -220,10 +222,10 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		writeProblem(w, http.StatusNotFound, "not found", nil)
-	case errors.Is(err, acme.ErrForbidden), errors.Is(err, acme.ErrNoTransition):
+	case errors.Is(err, ErrConflict), errors.Is(err, acme.ErrForbidden), errors.Is(err, acme.ErrNoTransition):
 		writeProblem(w, http.StatusConflict, "the request conflicts with the current state", nil)
-	case isInvariantAcme(err):
-		writeProblem(w, http.StatusUnprocessableEntity, "the request would break a rule of the model", nil)
+	case errors.Is(err, ErrUnprocessable), isInvariantAcme(err):
+		writeProblem(w, http.StatusUnprocessableEntity, "the request would break a rule", nil)
 	default:
 		writeProblem(w, http.StatusInternalServerError, "internal error", nil)
 	}

@@ -22,11 +22,48 @@ import (
 // refused with a 403.
 const Role = "operator"
 
+// AdminRole is the role of the routes that change credentials (put, rotate
+// and delete a secret, issue and revoke a token). It is held apart from Role
+// so that a token an automated runner holds cannot mint tokens or touch
+// secrets; it reaches no other route.
+const AdminRole = "admin"
+
+// Roles are the roles a token may act as.
+var Roles = []string{Role, AdminRole}
+
 // Tokens checks a presented API token: the role it acts as, or an error when
 // it is unknown, expired, revoked or its use could not be recorded. use is
 // "METHOD /path", for the audit log. *vault.Vault is one.
 type Tokens interface {
 	Authenticate(ctx context.Context, token, use string) (role, name string, err error)
+}
+
+// actorKey holds, in a request's context, the name of the token that made it.
+type actorKey struct{}
+
+type caller struct{ name string }
+
+// Actor is how the audit log names the token that made the request whose
+// context this is ("token:<name>", as the authentication's own lines do), or
+// "" when no token was accepted. A route that writes names this actor.
+func Actor(ctx context.Context) string {
+	if c, ok := ctx.Value(actorKey{}).(*caller); ok && c.name != "" {
+		return "token:" + c.name
+	}
+	return ""
+}
+
+// WithActor returns ctx as the request of the named token would carry it,
+// for a test of what is below the handler.
+func WithActor(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, actorKey{}, &caller{name})
+}
+
+// withCaller gives each request a place for authentication to record who made it.
+func withCaller(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, &caller{})))
+	})
 }
 
 // Config is what the handler needs.
@@ -47,7 +84,7 @@ func Handler(c Config) http.Handler {
 	auth := BearerAuth(c.Tokens)
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/v1/events", noStore(authorised(auth, http.HandlerFunc(c.stream))))
-	mux.Handle("/", noStore(api.Handler(c.Service, auth)))
+	mux.Handle("/", noStore(withCaller(api.Handler(c.Service, auth))))
 	return mux
 }
 
@@ -60,9 +97,12 @@ func BearerAuth(tokens Tokens) api.Auth {
 		if !ok || got == "" {
 			return "", false
 		}
-		role, _, err := tokens.Authenticate(r.Context(), got, r.Method+" "+r.URL.Path)
+		role, name, err := tokens.Authenticate(r.Context(), got, r.Method+" "+r.URL.Path)
 		if err != nil {
 			return "", false
+		}
+		if c, ok := r.Context().Value(actorKey{}).(*caller); ok {
+			c.name = name
 		}
 		return role, true
 	}
