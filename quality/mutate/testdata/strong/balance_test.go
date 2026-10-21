@@ -28,3 +28,10 @@ func TestLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestTotal(t *testing.T) {
+	sum, positive := total([]int{4, -1, 0, 1, 2})
+	if sum != 6 || positive != 3 {
+		t.Errorf("total = %d, %d; want 6, 3", sum, positive)
+	}
+}

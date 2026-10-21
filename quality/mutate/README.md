@@ -1,6 +1,6 @@
 # quality/mutate
 
-The mutation checker (M5): mutates operators, boundaries and constants in a
+The mutation checker (M5): mutates operators, boundaries, constants and statements in a
 pure function, reruns the package's tests, and reports every surviving mutant
 with its position. Built on `go/ast`, standard library only (A6). The command
 is [cmd/mutate](../../cmd/mutate/main.go):
@@ -27,9 +27,14 @@ not run (tests failing before any mutation, unknown function, no `go` tool).
 | `true`, `false` | the other |
 | integer `n` | `n+1` and `n-1` |
 | string `"s"`; `""` | `""`; `"mutant"` |
+| an assignment (not `:=`), a call statement, `x++`, `x--` | the statement removed, reported `statement -> deleted` |
 
-Not mutated: shifts, bit operators, raw strings, floats, statements (no
-deletions, no `return` changes).
+A deletion that leaves a variable unused does not compile and is invalid. It
+is what gives an action with no operator (an assignment or call with nothing
+to flip) a mutant at all.
+
+Not mutated: shifts, bit operators, raw strings, floats, other statements
+(`return`, `:=`, `go`, `defer`, `break`), no `return` changes.
 
 ## How a mutant is tried
 

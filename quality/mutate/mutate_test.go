@@ -142,6 +142,47 @@ func TestRunWeakTestsLeaveSurvivors(t *testing.T) {
 	}
 }
 
+func TestGenerateDeletesStatements(t *testing.T) {
+	ms, err := Generate("testdata/untested", "tally")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// double := 0 is a definition and return is not removable: one deletion,
+	// of the assignment.
+	var del []Mutant
+	for _, m := range ms {
+		if m.Original == "statement" {
+			del = append(del, m)
+		}
+	}
+	if len(del) != 1 || del[0].Replacement != "deleted" || del[0].Line != 7 {
+		t.Fatalf("want one deletion at line 7, got %v", del)
+	}
+	out, err := del[0].render()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "double = amount") {
+		t.Errorf("the assignment is still in the mutant:\n%s", out)
+	}
+}
+
+func TestRunUntestedAssignmentSurvivesDeletion(t *testing.T) {
+	rep, err := Run(context.Background(), Options{Dir: "./testdata/untested"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, s := range rep.Survivors() {
+		if s.Original == "statement" && s.Replacement == "deleted" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("deleting the untested assignment should survive; survivors %v", rep.Survivors())
+	}
+}
+
 func TestRunRefusesFailingTests(t *testing.T) {
 	_, err := Run(context.Background(), Options{Dir: "./testdata/broken"})
 	if err == nil || !strings.Contains(err.Error(), "before any mutation") {

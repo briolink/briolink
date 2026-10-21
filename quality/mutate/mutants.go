@@ -143,6 +143,18 @@ func funcMutants(src *source, fd *ast.FuncDecl) []Mutant {
 		stack = append(stack, n)
 
 		switch n := n.(type) {
+		case *ast.BlockStmt:
+			// An assignment, call or increment is removed; a deletion that
+			// leaves a variable unused does not compile and counts as invalid.
+			for i, s := range n.List {
+				if !deletable(s) {
+					continue
+				}
+				i, s := i, s
+				add(s.Pos(), "statement", "deleted",
+					func() { n.List[i] = &ast.EmptyStmt{Semicolon: s.Pos(), Implicit: true} },
+					func() { n.List[i] = s })
+			}
 		case *ast.BinaryExpr:
 			for _, to := range swaps[n.Op] {
 				from, to := n.Op, to
@@ -188,6 +200,21 @@ func funcMutants(src *source, fd *ast.FuncDecl) []Mutant {
 		return true
 	})
 	return out
+}
+
+// deletable reports whether s is a statement whose removal is a mutant: an
+// assignment other than :=, a call statement or an increment.
+func deletable(s ast.Stmt) bool {
+	switch s := s.(type) {
+	case *ast.AssignStmt:
+		return s.Tok != token.DEFINE
+	case *ast.ExprStmt:
+		_, ok := s.X.(*ast.CallExpr)
+		return ok
+	case *ast.IncDecStmt:
+		return true
+	}
+	return false
 }
 
 // literalSwaps gives the values a literal is mutated into: an integer moves
