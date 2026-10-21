@@ -8,7 +8,7 @@ into `gen/`; what is here is the rest.
 | --- | --- |
 | `operator` | `operator.json` v0: listen address (private, never a wildcard; TLS unless loopback), database, routing file, the master key's credential name, adapter per port |
 | `routing` | `spec/routing.json` v0: strict decoder and validation of the tier and job table |
-| `logic` | The pure functions of `spec/domain/control.json` (`control.Funcs`): sorting the routing view, reading a task from an issue, clamping a page size |
+| `logic` | The pure functions of `spec/domain/control.json` (`control.Funcs`): sorting the routing view, reading a task from an issue, clamping a page size, the credential-expiry alerts |
 | `store` | The control plane's SQLite database: run records and the append-only audit log (the database refuses an update or delete); applies `migrations/` at open; publishes an event after each write |
 | `events` | The in-process event broker: numbered events, the last 256 kept for reconnecting clients, a subscriber that falls 64 behind is cut off |
 | `service` | The generated `api.Service`, hand-written during the bootstrap (M9): the routes read, except the credential routes, which write through the vault as the token that called |
@@ -40,9 +40,15 @@ into `gen/`; what is here is the rest.
   name. A token nobody issued leaves no line, so a stranger cannot grow the
   log. If the line cannot be written, the use is refused. Nothing logs or
   returns a secret, a token or the key.
-- **Expiry:** `control credentials -expiring` lists what the daily
-  credential-expiry check and the control center will list: reminder date
-  reached, or expiry within 30 days (or past).
+- **Expiry:** `control credentials -expiring` lists what the control center
+  will list: reminder date reached, or expiry within 30 days (or past).
+  `control credentials -check` is the daily credential-expiry check
+  ([3-hosting](../docs/3-hosting.md#checks)): one line per credential that is
+  `expired` (expiry before today, so a token is already refused) or `remind`
+  (reminder date reached or, without one, expiry within 30 days), with its
+  name and expiry date, never a value; revoked ones and ones with no expiry
+  are left out. The rule is `credential_alerts` in `logic`; the ops host runs
+  the command daily and sends its lines to the notifier.
 
 ## API v0 (roles `operator` and `admin`)
 

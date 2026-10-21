@@ -49,6 +49,7 @@ is dropped.
 | `token create NAME [-role operator\|admin] [-expires D] [-remind D]` | Prints a new API token, once |
 | `token revoke NAME` | Stops the token authenticating |
 | `credentials [-expiring]` | Lists secrets and tokens with their dates, never values |
+| `credentials -check` | The daily credential-expiry check: one line per credential that is `remind` or `expired`, with its name and expiry date; `nothing to report` when none. Run it daily from the ops host's timer |
 
 ```text
 systemd-creds ... # master key, once

@@ -4,6 +4,7 @@
 package logic
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"time"
@@ -101,4 +102,36 @@ func (Impl) CredentialProblem(name, expiresOn, remindOn string) string {
 		return "the reminder must not be after the expiry"
 	}
 	return ""
+}
+
+// remindWithinDays is how close an expiry must be to be reported when the
+// credential has no reminder date of its own.
+const remindWithinDays = 30
+
+func (Impl) CredentialAlerts(credentials []control.Credential, today string) []control.CredentialAlert {
+	out := []control.CredentialAlert{}
+	day, err := time.Parse(dateLayout, today)
+	if err != nil {
+		return out
+	}
+	horizon := day.AddDate(0, 0, remindWithinDays).Format(dateLayout)
+	for _, c := range credentials {
+		if c.Revoked || c.ExpiresOn == "" {
+			continue
+		}
+		var state control.AlertState
+		switch {
+		case c.ExpiresOn < today:
+			state = control.AlertStateExpired
+		case c.RemindOn != "" && c.RemindOn <= today, c.RemindOn == "" && c.ExpiresOn <= horizon:
+			state = control.AlertStateRemind
+		default:
+			continue
+		}
+		out = append(out, control.CredentialAlert{Kind: c.Kind, Name: c.Name, State: state, ExpiresOn: c.ExpiresOn})
+	}
+	slices.SortStableFunc(out, func(a, b control.CredentialAlert) int {
+		return cmp.Or(strings.Compare(a.ExpiresOn, b.ExpiresOn), strings.Compare(a.Kind, b.Kind), strings.Compare(a.Name, b.Name))
+	})
+	return out
 }

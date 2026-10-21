@@ -32,6 +32,14 @@ const (
 	RunOutcomeCancelled RunOutcome = "cancelled"
 )
 
+// AlertState why a credential is reported by the daily credential-expiry check
+type AlertState string
+
+const (
+	AlertStateRemind  AlertState = "remind"
+	AlertStateExpired AlertState = "expired"
+)
+
 // TierModel is an immutable value.
 type TierModel struct {
 	// coder, routine or top
@@ -111,4 +119,14 @@ type Credential struct {
 	RemindOn string
 	// A token that no longer authenticates
 	Revoked bool
+}
+
+// CredentialAlert one line of the credential-expiry check: names and dates, never a value
+type CredentialAlert struct {
+	// secret or token
+	Kind  string
+	Name  string
+	State AlertState
+	// YYYY-MM-DD
+	ExpiresOn string
 }

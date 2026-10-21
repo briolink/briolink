@@ -138,3 +138,41 @@ func TestCredentialProblem(t *testing.T) {
 		t.Errorf("problems are not told apart: %q / %q", first, second)
 	}
 }
+
+func TestCredentialAlerts(t *testing.T) {
+	cred := func(kind, name, expires, remind string, revoked bool) control.Credential {
+		return control.Credential{Kind: kind, Name: name, ExpiresOn: expires, RemindOn: remind, Revoked: revoked}
+	}
+	in := []control.Credential{
+		cred("secret", "FINE", "2027-01-01", "2026-12-01", false),
+		cred("secret", "NO_EXPIRY", "", "2026-01-01", false),
+		cred("secret", "REMINDED", "2026-12-31", "2026-10-21", false),
+		cred("token", "SOON_NO_REMINDER", "2026-11-20", "", false),
+		cred("token", "NOT_SOON", "2026-11-21", "", false),
+		cred("secret", "LAPSED", "2026-10-01", "2026-09-01", false),
+		cred("token", "REVOKED", "2026-10-01", "", true),
+		cred("token", "LAST_DAY", "2026-10-21", "", false),
+		cred("secret", "A_SAME_DAY", "2026-10-01", "", false),
+	}
+	before := append([]control.Credential(nil), in...)
+	want := []control.CredentialAlert{
+		{Kind: "secret", Name: "A_SAME_DAY", State: control.AlertStateExpired, ExpiresOn: "2026-10-01"},
+		{Kind: "secret", Name: "LAPSED", State: control.AlertStateExpired, ExpiresOn: "2026-10-01"},
+		{Kind: "token", Name: "LAST_DAY", State: control.AlertStateRemind, ExpiresOn: "2026-10-21"},
+		{Kind: "token", Name: "SOON_NO_REMINDER", State: control.AlertStateRemind, ExpiresOn: "2026-11-20"},
+		{Kind: "secret", Name: "REMINDED", State: control.AlertStateRemind, ExpiresOn: "2026-12-31"},
+	}
+	got := (Impl{}).CredentialAlerts(in, "2026-10-21")
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("alerts = %+v\nwant %+v", got, want)
+	}
+	if !reflect.DeepEqual(in, before) {
+		t.Errorf("argument changed")
+	}
+	if got := (Impl{}).CredentialAlerts(nil, "2026-10-21"); got == nil || len(got) != 0 {
+		t.Errorf("no credentials = %#v, want an empty list", got)
+	}
+	if got := (Impl{}).CredentialAlerts(in, "not a date"); got == nil || len(got) != 0 {
+		t.Errorf("bad today = %#v, want an empty list", got)
+	}
+}

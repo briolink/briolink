@@ -34,4 +34,13 @@ type Funcs interface {
 	// - Returns an empty string when the name and both dates are acceptable; otherwise a short sentence for the first problem, in the order name, expiry, reminder, reminder against expiry
 	// - The sentence never repeats the name or a date
 	CredentialProblem(name string, expires_on string, remind_on string) string
+	// CredentialAlerts (pure)
+	// - Skips a revoked credential and one with no expires_on
+	// - A credential is expired when its expires_on is before today (a token is refused from the day after)
+	// - Otherwise it is remind when its remind_on is today or earlier or, with no remind_on, its expires_on is within 30 days of today
+	// - Any other credential is not reported
+	// - Each alert carries the credential's kind, name and expires_on, never anything else
+	// - Returns the alerts soonest expires_on first, then by kind, then by name; an empty list, not nothing, when there are none
+	// - Does not change its argument
+	CredentialAlerts(credentials []Credential, today string) []CredentialAlert
 }
