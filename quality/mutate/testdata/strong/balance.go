@@ -13,3 +13,14 @@ func label(amount int) string {
 	}
 	return "payment"
 }
+
+// total adds the lines and counts the positive ones.
+func total(lines []int) (sum, positive int) {
+	for _, l := range lines {
+		sum += l
+		if l > 0 {
+			positive++
+		}
+	}
+	return sum, positive
+}
