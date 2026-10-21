@@ -373,3 +373,46 @@ func TestTokenRolesFromTheCommand(t *testing.T) {
 		t.Errorf("credentials:\n%s", out)
 	}
 }
+
+func TestCredentialExpiryCheck(t *testing.T) {
+	cfg, _ := operatorJSON(t, func(s string) string { return s })
+	creds := credentials(t, goodKey, 0o400)
+	defer func(f func() time.Time) { now = f }(now)
+	now = func() time.Time { return time.Date(2026, 10, 21, 3, 0, 0, 0, time.UTC) }
+	do := func(stdin string, args ...string) string {
+		t.Helper()
+		out, err := command(t, cfg, creds, stdin, args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return out
+	}
+	if out := do("", "credentials", "-check"); !strings.Contains(out, "nothing to report") {
+		t.Errorf("empty vault:\n%s", out)
+	}
+	var seen strings.Builder
+	seen.WriteString(do("far-value", "secret", "put", "FAR", "-expires", "2028-01-01", "-remind", "2027-12-01"))
+	seen.WriteString(do("due-value", "secret", "put", "DUE", "-expires", "2026-12-31", "-remind", "2026-10-21"))
+	seen.WriteString(do("old-value", "secret", "put", "OLD", "-expires", "2026-10-01"))
+	tok := strings.TrimSpace(do("", "token", "create", "ci", "-expires", "2026-11-01"))
+	seen.WriteString(tok)
+	gone := strings.TrimSpace(do("", "token", "create", "gone", "-expires", "2026-10-01"))
+	seen.WriteString(gone)
+	do("", "token", "revoke", "gone")
+
+	out := do("", "credentials", "-check")
+	want := "credentials: expired secret OLD expires 2026-10-01\n" +
+		"credentials: remind token ci expires 2026-11-01\n" +
+		"credentials: remind secret DUE expires 2026-12-31\n"
+	if out != want {
+		t.Errorf("check =\n%s\nwant\n%s", out, want)
+	}
+	for _, secret := range []string{"far-value", "due-value", "old-value", tok, gone} {
+		if strings.Contains(out, secret) {
+			t.Errorf("the check printed a value or token")
+		}
+	}
+	if _, err := command(t, cfg, creds, "", "credentials", "-check", "-expiring"); err == nil {
+		t.Error("-check with -expiring was accepted")
+	}
+}

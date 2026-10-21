@@ -11,13 +11,16 @@
     {"term": "RunRecord", "meaning": "What the runner records about one attempt at a task: the tier, the routing row that chose it, the model used and the outcome"},
     {"term": "RunOutcome", "meaning": "How a run ended, or running while it has not"},
     {"term": "AuditEntry", "meaning": "One line of the append-only audit log: who did what to which subject, and when"},
-    {"term": "Credential", "meaning": "A secret or an API token as the control plane may show it: its name, dates and state, never its value"}
+    {"term": "Credential", "meaning": "A secret or an API token as the control plane may show it: its name, dates and state, never its value"},
+    {"term": "AlertState", "meaning": "Why the daily credential-expiry check reports a credential: its reminder date has come, or it has expired"},
+    {"term": "CredentialAlert", "meaning": "One line of the credential-expiry check: a credential's kind, name, state and expiry date, never a value"}
   ],
   "enums": [
     {"name": "TaskState", "doc": "The state label of an issue, with hyphens as underscores", "values": [
       "queued", "running", "needs_founder", "needs_reasoner", "blocked", "waiting", "unlabelled", "conflict"
     ]},
-    {"name": "RunOutcome", "doc": "", "values": ["running", "passed", "failed", "escalated", "cancelled"]}
+    {"name": "RunOutcome", "doc": "", "values": ["running", "passed", "failed", "escalated", "cancelled"]},
+    {"name": "AlertState", "doc": "Why a credential is reported by the daily credential-expiry check", "values": ["remind", "expired"]}
   ],
   "values": [
     {"name": "TierModel", "doc": "", "fields": [
@@ -68,6 +71,12 @@
       {"name": "expires_on", "type": "string", "doc": "YYYY-MM-DD; empty if none"},
       {"name": "remind_on", "type": "string", "doc": "YYYY-MM-DD; empty if none"},
       {"name": "revoked", "type": "bool", "doc": "A token that no longer authenticates"}
+    ]},
+    {"name": "CredentialAlert", "doc": "One line of the credential-expiry check: names and dates, never a value", "fields": [
+      {"name": "kind", "type": "string", "doc": "secret or token"},
+      {"name": "name", "type": "string", "doc": ""},
+      {"name": "state", "type": "AlertState", "doc": ""},
+      {"name": "expires_on", "type": "string", "doc": "YYYY-MM-DD"}
     ]}
   ],
   "entities": [],
@@ -125,6 +134,21 @@
        "A reminder is acceptable when it is not after the expiry; with no expiry any acceptable reminder is",
        "Returns an empty string when the name and both dates are acceptable; otherwise a short sentence for the first problem, in the order name, expiry, reminder, reminder against expiry",
        "The sentence never repeats the name or a date"
+     ]},
+    {"name": "credential_alerts", "kind": "pure", "doc": "What the daily credential-expiry check reports",
+     "params": [
+       {"name": "credentials", "type": "[]Credential", "doc": ""},
+       {"name": "today", "type": "string", "doc": "YYYY-MM-DD"}
+     ],
+     "returns": [{"name": "alerts", "type": "[]CredentialAlert", "doc": ""}],
+     "rules": [
+       "Skips a revoked credential and one with no expires_on",
+       "A credential is expired when its expires_on is before today (a token is refused from the day after)",
+       "Otherwise it is remind when its remind_on is today or earlier or, with no remind_on, its expires_on is within 30 days of today",
+       "Any other credential is not reported",
+       "Each alert carries the credential's kind, name and expires_on, never anything else",
+       "Returns the alerts soonest expires_on first, then by kind, then by name; an empty list, not nothing, when there are none",
+       "Does not change its argument"
      ]}
   ]
 }

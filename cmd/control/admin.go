@@ -8,13 +8,19 @@ import (
 	"fmt"
 	"io"
 	"text/tabwriter"
+	"time"
 
+	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/server"
 	"github.com/briolink/briolink/control/vault"
+	"github.com/briolink/briolink/gen/domain/control"
 )
 
 // cliActor is the name the audit log carries for a command run on the host.
 const cliActor = "cli"
+
+// now is the clock of the credential-expiry check; tests replace it.
+var now = time.Now
 
 const adminUsage = `commands:
   secret put NAME [-expires D] [-remind D]     value from standard input
@@ -22,7 +28,8 @@ const adminUsage = `commands:
   secret delete NAME
   token create NAME [-role operator] [-expires D] [-remind D]   prints the token once
   token revoke NAME
-  credentials [-expiring]                      names and dates, never values
+  credentials [-expiring | -check]             names and dates, never values; -check is
+                                               the daily credential-expiry check
   (dates are YYYY-MM-DD)`
 
 // admin runs one command of the secret store. It writes to the same database
@@ -100,8 +107,15 @@ func admin(ctx context.Context, v *vault.Vault, args []string, in io.Reader, out
 	case "credentials":
 		fs := flag.NewFlagSet("credentials", flag.ContinueOnError)
 		expiring := fs.Bool("expiring", false, "only those whose reminder has come or that expire within 30 days")
+		check := fs.Bool("check", false, "report the credentials that are remind or expired")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
+		}
+		if *check {
+			if *expiring {
+				return usage()
+			}
+			return checkCredentials(ctx, v, out)
 		}
 		list := v.List
 		if *expiring {
@@ -123,4 +137,28 @@ func admin(ctx context.Context, v *vault.Vault, args []string, in io.Reader, out
 		return tw.Flush()
 	}
 	return usage()
+}
+
+// checkCredentials is the daily credential-expiry check: one line per
+// credential that is remind or expired, with its name and expiry date, never a
+// value. A day's run with nothing to report says so.
+func checkCredentials(ctx context.Context, v *vault.Vault, out io.Writer) error {
+	entries, err := v.List(ctx)
+	if err != nil {
+		return err
+	}
+	all := make([]control.Credential, len(entries))
+	for i, e := range entries {
+		all[i] = control.Credential{Kind: e.Kind, Name: e.Name, Role: e.Role, CreatedAt: e.CreatedAt, RotatedAt: e.RotatedAt,
+			ExpiresOn: e.ExpiresOn, RemindOn: e.RemindOn, Revoked: e.Revoked}
+	}
+	alerts := logic.Impl{}.CredentialAlerts(all, now().UTC().Format("2006-01-02"))
+	if len(alerts) == 0 {
+		fmt.Fprintln(out, "credentials: nothing to report")
+		return nil
+	}
+	for _, a := range alerts {
+		fmt.Fprintf(out, "credentials: %s %s %s expires %s\n", a.State, a.Kind, a.Name, a.ExpiresOn)
+	}
+	return nil
 }
