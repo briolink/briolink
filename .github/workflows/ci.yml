@@ -35,3 +35,22 @@ jobs:
 
       - name: go test
         run: go test ./...
+
+  author:
+    # A22: a pull request is by the bot or the founder, nobody else.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    env:
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+      ALLOWED: briolink-bot[bot] ahmed-boussayri
+    steps:
+      - name: author is the bot or the founder
+        run: |
+          for a in $ALLOWED; do
+            if [ "$AUTHOR" = "$a" ]; then
+              echo "author $AUTHOR is allowed"
+              exit 0
+            fi
+          done
+          echo "::error::pull request author '$AUTHOR' is neither the bot nor the founder (A22)"
+          exit 1
