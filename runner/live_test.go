@@ -58,8 +58,9 @@ func TestAcmeChecks(t *testing.T) {
 
 // TestLive passes the same function through the real coder. Skipped unless
 // BRIOLINK_LIVE_OLLAMA names the coder model (BRIOLINK_LIVE_OLLAMA_URL
-// overrides the server). The commands run on the host, in the worktree, not
-// in the build container; the container is #4's.
+// overrides the server). The commands run on the host, in the worktree,
+// unless BRIOLINK_LIVE_DOCKER names the build worker image: then each runs by
+// `docker run --network none` (liveWorkspaces).
 func TestLive(t *testing.T) {
 	model := os.Getenv("BRIOLINK_LIVE_OLLAMA")
 	if model == "" {
@@ -75,6 +76,33 @@ func TestLive(t *testing.T) {
 	if rec.runs[len(rec.runs)-1].Outcome != control.RunOutcomePassed {
 		t.Errorf("records %+v", rec.runs)
 	}
+}
+
+// liveWorkspaces gives the worktrees of src: on the host, with the freshly
+// built tools first on the PATH of every docker command, or, when
+// BRIOLINK_LIVE_DOCKER names the build worker image, in the offline container
+// (BRIOLINK_LIVE_TOOLS: the linux generate and mutate from build-tools.sh;
+// BRIOLINK_LIVE_MODCACHE: the seeded module cache).
+func liveWorkspaces(t *testing.T, src, tools string) *Container {
+	t.Helper()
+	if image := os.Getenv("BRIOLINK_LIVE_DOCKER"); image != "" {
+		return &Container{Repo: src, Dir: t.TempDir(), Image: image,
+			Tools: os.Getenv("BRIOLINK_LIVE_TOOLS"), ModCache: os.Getenv("BRIOLINK_LIVE_MODCACHE")}
+	}
+	var docker [][]string
+	host := hostDocker(t, &docker)
+	onHost := func(ctx context.Context, argv []string) ([]byte, int, error) {
+		if argv[0] == "docker" {
+			for i, a := range argv {
+				if a == "img" {
+					argv = append(append([]string{argv[0]}, argv[1:i]...), append([]string{"img", "env", "PATH=" + tools + ":" + os.Getenv("PATH")}, argv[i+1:]...)...)
+					break
+				}
+			}
+		}
+		return host(ctx, argv)
+	}
+	return &Container{Repo: src, Dir: t.TempDir(), Image: "img", Cmd: onHost}
 }
 
 // runAcme sets up the acme project with SettlesBalance as a stub and runs its
@@ -119,20 +147,7 @@ func TestInvoice(t *testing.T) { acmetest.Invoice(t, Impl{}, samples.Invoice{}) 
 	git(t, src, "add", ".")
 	git(t, src, "commit", "-q", "-m", "acme")
 
-	var docker [][]string
-	host := hostDocker(t, &docker)
-	onHost := func(ctx context.Context, argv []string) ([]byte, int, error) {
-		if argv[0] == "docker" {
-			for i, a := range argv {
-				if a == "img" {
-					argv = append(append([]string{argv[0]}, argv[1:i]...), append([]string{"img", "env", "PATH=" + tools + ":" + os.Getenv("PATH")}, argv[i+1:]...)...)
-					break
-				}
-			}
-		}
-		return host(ctx, argv)
-	}
-	ws := &Container{Repo: src, Dir: t.TempDir(), Image: "img", Cmd: onHost}
+	ws := liveWorkspaces(t, src, tools)
 
 	ct, err := contract.Decode([]byte(`{
   "format": "v0", "task_id": "acme-0001", "project_id": "acme",
