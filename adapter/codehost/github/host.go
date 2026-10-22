@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/briolink/briolink/port/codehost"
 )
@@ -23,6 +25,11 @@ var ErrAPI = errors.New("github: request failed")
 // maxBody caps what is read of one answer.
 const maxBody = 8 << 20
 
+// listLag is how long after a write GitHub's issue list may still miss it or
+// show it as it was: seconds, measured on the live contract run (2026-10-22);
+// a minute is an *estimate* with margin.
+const listLag = time.Minute
+
 // Tokens gives the token every request carries; *TokenSource is the bot's.
 type Tokens interface {
 	Token(ctx context.Context) (string, error)
@@ -33,8 +40,48 @@ type Tokens interface {
 type Host struct {
 	Repo    string // "owner/name"
 	Tokens  Tokens
-	BaseURL string       // DefaultBaseURL when empty
-	Client  *http.Client // http.DefaultClient when nil
+	BaseURL string           // DefaultBaseURL when empty
+	Client  *http.Client     // http.DefaultClient when nil
+	Now     func() time.Time // time.Now when nil
+
+	mu      sync.Mutex
+	written map[int]time.Time // issues this Host changed, and when
+}
+
+func (h *Host) now() time.Time {
+	if h.Now != nil {
+		return h.Now()
+	}
+	return time.Now()
+}
+
+// wrote records a change to an issue, for ListIssues.
+func (h *Host) wrote(number int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.written == nil {
+		h.written = map[int]time.Time{}
+	}
+	now := h.now()
+	for n, at := range h.written {
+		if now.Sub(at) > listLag {
+			delete(h.written, n)
+		}
+	}
+	h.written[number] = now
+}
+
+// recent returns the issues this Host changed within listLag.
+func (h *Host) recent() []int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []int
+	for n, at := range h.written {
+		if h.now().Sub(at) <= listLag {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 var _ codehost.Host = (*Host)(nil)
@@ -273,6 +320,7 @@ func (h *Host) CreateIssue(ctx context.Context, in codehost.NewIssue) (codehost.
 	if _, err := h.do(ctx, http.MethodPost, "/issues", req, &g); err != nil {
 		return codehost.Issue{}, err
 	}
+	h.wrote(g.Number)
 	return g.issue(), nil
 }
 
@@ -306,14 +354,48 @@ func (h *Host) ListIssues(ctx context.Context, f codehost.IssueFilter) ([]codeho
 	if err != nil {
 		return nil, err
 	}
-	var out []codehost.Issue
+	found := map[int]codehost.Issue{}
 	for _, g := range gs {
 		if g.PullRequest == nil {
-			out = append(out, g.issue())
+			found[g.Number] = g.issue()
 		}
+	}
+	// The list lags writes: an issue this Host changed lately is read on its
+	// own and filtered here, so the caller sees its own writes.
+	for _, n := range h.recent() {
+		delete(found, n)
+		g, err := h.getIssue(ctx, n)
+		if errors.Is(err, codehost.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if is := g.issue(); matches(is, f) {
+			found[n] = is
+		}
+	}
+	out := make([]codehost.Issue, 0, len(found))
+	for _, is := range found {
+		out = append(out, is)
 	}
 	slices.SortFunc(out, func(a, b codehost.Issue) int { return a.Number - b.Number })
 	return out, nil
+}
+
+func matches(is codehost.Issue, f codehost.IssueFilter) bool {
+	if f.State != "" && is.State != f.State {
+		return false
+	}
+	if f.Milestone != "" && is.Milestone != f.Milestone {
+		return false
+	}
+	for _, l := range nonEmpty(f.Labels) {
+		if !slices.Contains(is.Labels, l) {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Host) UpdateIssue(ctx context.Context, number int, u codehost.IssueUpdate) (codehost.Issue, error) {
@@ -340,6 +422,7 @@ func (h *Host) UpdateIssue(ctx context.Context, number int, u codehost.IssueUpda
 	if _, err := h.do(ctx, http.MethodPatch, "/issues/"+strconv.Itoa(number), req, &g); err != nil {
 		return codehost.Issue{}, err
 	}
+	h.wrote(number)
 	return g.issue(), nil
 }
 
@@ -356,6 +439,7 @@ func (h *Host) AddLabels(ctx context.Context, number int, labels ...string) (cod
 	if _, err := h.do(ctx, http.MethodPost, "/issues/"+strconv.Itoa(number)+"/labels", map[string]any{"labels": l}, &g.Labels); err != nil {
 		return codehost.Issue{}, err
 	}
+	h.wrote(number)
 	return g.issue(), nil
 }
 
@@ -374,6 +458,7 @@ func (h *Host) RemoveLabels(ctx context.Context, number int, labels ...string) (
 		if err != nil && !errors.Is(err, codehost.ErrNotFound) {
 			return codehost.Issue{}, err
 		}
+		h.wrote(number)
 	}
 	g.Labels = keep
 	return g.issue(), nil

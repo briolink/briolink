@@ -133,17 +133,24 @@ func (c committing) CreateBranch(ctx context.Context, name, from string) error {
 func finish(t *testing.T, founder, repo string) {
 	ctx := context.Background()
 	var writes []string
-	var issues []struct {
-		Number int
-		User   struct{ Login string }
-	}
 	must := func(err error) {
 		if err != nil {
 			t.Errorf("author check on %s: %v", repo, err)
 		}
 	}
-	must(api(ctx, founder, http.MethodGet, "/repos/"+repo+"/issues?state=all&per_page=100", nil, &issues))
-	for _, is := range issues {
+	// Issues and pull requests are read one by one, 1 up to the first
+	// missing number: GitHub's issue list lags writes by seconds.
+	for n := 1; ; n++ {
+		var is struct {
+			Number int
+			User   struct{ Login string }
+		}
+		if err := api(ctx, founder, http.MethodGet, fmt.Sprintf("/repos/%s/issues/%d", repo, n), nil, &is); err != nil {
+			if !strings.Contains(err.Error(), "status 404") {
+				must(err)
+			}
+			break
+		}
 		writes = append(writes, fmt.Sprintf("#%d by %s", is.Number, is.User.Login))
 		var cs []struct{ User struct{ Login string } }
 		must(api(ctx, founder, http.MethodGet, fmt.Sprintf("/repos/%s/issues/%d/comments?per_page=100", repo, is.Number), nil, &cs))

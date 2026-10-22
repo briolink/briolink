@@ -30,6 +30,7 @@ type fakeAPI struct {
 	commentSeq int
 	milestones []map[string]any
 	refs       map[string]string // branch → sha
+	stale      map[int]*fIssue   // when set, what the issue list serves (GitHub's lag)
 	sha        int
 	writes     int
 }
@@ -184,11 +185,15 @@ func (f *fakeAPI) listIssues(w http.ResponseWriter, r *http.Request) {
 		want = strings.Split(l, ",")
 	}
 	ms, _ := strconv.Atoi(q.Get("milestone"))
+	issues := f.issues
+	if f.stale != nil {
+		issues = f.stale
+	}
 	var items []any
 	// Newest first, GitHub's default; the adapter asks for ascending but
 	// must not rely on the order.
 	for n := f.next; n >= 1; n-- {
-		is, ok := f.issues[n]
+		is, ok := issues[n]
 		if !ok || (state != "all" && is.State != state) {
 			continue
 		}
@@ -201,6 +206,19 @@ func (f *fakeAPI) listIssues(w http.ResponseWriter, r *http.Request) {
 		items = append(items, f.issueJSON(is))
 	}
 	f.paged(w, r, items)
+}
+
+// freeze makes the issue list serve the issues as they are now, until the
+// next freeze: the lag GitHub's list shows after a write.
+func (f *fakeAPI) freeze() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stale = map[int]*fIssue{}
+	for n, is := range f.issues {
+		c := *is
+		c.Labels = slices.Clone(is.Labels)
+		f.stale[n] = &c
+	}
 }
 
 func hasAll(have, want []string) bool {

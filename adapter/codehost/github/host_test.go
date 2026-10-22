@@ -6,7 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/briolink/briolink/port/codehost"
 )
@@ -113,5 +115,52 @@ func TestNextLink(t *testing.T) {
 		if got := nextLink(in); got != want {
 			t.Errorf("%q: got %q", in, got)
 		}
+	}
+}
+
+// GitHub's issue list lags writes by seconds: the Host still lists its own
+// writes as they are, and others' once the list catches up.
+func TestListSeesOwnWritesDespiteLag(t *testing.T) {
+	f := newFakeAPI(t, "acme/site", "ghs_bot")
+	now := epoch
+	h := &Host{Repo: "acme/site", Tokens: staticToken("ghs_bot"), BaseURL: f.srv.URL, Now: func() time.Time { return now }}
+	ctx := context.Background()
+	nums := func(fl codehost.IssueFilter) []int {
+		t.Helper()
+		got, err := h.ListIssues(ctx, fl)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var n []int
+		for _, is := range got {
+			n = append(n, is.Number)
+		}
+		return n
+	}
+	old, _ := h.CreateIssue(ctx, codehost.NewIssue{Title: "old", Labels: []string{"x"}})
+	now = now.Add(listLag + time.Second) // old is no longer recent
+	f.freeze()
+
+	a, _ := h.CreateIssue(ctx, codehost.NewIssue{Title: "a", Labels: []string{"x"}})
+	closed := codehost.Closed
+	h.UpdateIssue(ctx, old.Number, codehost.IssueUpdate{State: &closed})
+	if got, want := nums(codehost.IssueFilter{State: codehost.Open, Labels: []string{"x"}}), []int{a.Number}; !slices.Equal(got, want) {
+		t.Errorf("open x: got %v, want %v", got, want)
+	}
+	if got, want := nums(codehost.IssueFilter{State: codehost.Closed}), []int{old.Number}; !slices.Equal(got, want) {
+		t.Errorf("closed: got %v, want %v", got, want)
+	}
+
+	// Someone else's issue shows only once the list has it.
+	f.mu.Lock()
+	f.next++
+	f.issues[f.next] = &fIssue{Number: f.next, Title: "theirs", State: "open"}
+	f.mu.Unlock()
+	if got := nums(codehost.IssueFilter{State: codehost.Open}); slices.Contains(got, f.next) {
+		t.Errorf("listed an issue the list does not have yet: %v", got)
+	}
+	f.freeze()
+	if got := nums(codehost.IssueFilter{State: codehost.Open}); !slices.Contains(got, f.next) {
+		t.Errorf("missed an issue the list has: %v", got)
 	}
 }

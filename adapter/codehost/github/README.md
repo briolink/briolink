@@ -23,6 +23,10 @@ the port's:
   for a missing one, the port says not found). GitHub refuses a pull request
   whose head has no commit its base lacks (`ErrInvalid`); the runner pushes
   before it opens one.
+- **Lag:** GitHub's issue list may miss a write, or show the issue as it was, for some seconds
+  (seen on the live run, 2026-10-22). `ListIssues` reads the issues this `Host`
+  changed in the last minute (*estimate*) one by one and filters them itself,
+  so a caller sees its own writes; others' writes show once the list has them.
 - **Errors:** 404 and 410 are `ErrNotFound`; 422 is `ErrExists` when GitHub
   says so, else `ErrInvalid`; any other status is `ErrAPI` with the status and
   GitHub's message. Lists follow the `Link` header, 100 a page.
