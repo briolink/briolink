@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The deterministic forms of /briolink (M10): the board, list, exit, and the binding itself. No model is involved.
-# Usage: scripts/briolink.sh [list|exit|bind]   (no argument: bind and show the board)
+# The deterministic forms of /briolink (M10): the board, list, tidy, exit, and the binding itself. No model is involved.
+# Usage: scripts/briolink.sh [list|tidy|exit|bind]   (no argument: bind and show the board)
 #        scripts/briolink.sh --hook             (UserPromptSubmit hook: reads the hook JSON on stdin)
-# In hook mode, `/briolink`, `/briolink list` and `/briolink exit` are answered here and the prompt is blocked,
+# In hook mode, `/briolink`, `/briolink list`, `/briolink tidy` and `/briolink exit` are answered here and the prompt is blocked,
 # so no model turn runs; any other `/briolink …` binds here and goes on to the model; any other prompt
 # gets the routing reminder while bound.
 set -euo pipefail
@@ -106,13 +106,60 @@ unblockable() {
   return 0
 }
 
+# Housekeeping, run by `/briolink tidy` and by `/briolink done`. Done means closed (2-architecture.md#work-tracking), so a
+# closed issue loses its state:* labels; branches merged into main are deleted, here and on origin. The rest is
+# reported, never changed: open issues without a state:* label or a milestone, unmerged branches, old pull requests.
+tidy() {
+  local n l b current main=origin/main changed=""
+  current=$(git branch --show-current)
+  git fetch -q --prune origin
+  echo "Tidy:"
+  for n in $(gh issue list --state closed --limit 1000 --json number,labels \
+      --jq '.[] | select([.labels[].name] | any(startswith("state:"))) | .number'); do
+    for l in $(gh issue view "$n" --json labels --jq '.labels[].name | select(startswith("state:"))'); do
+      gh issue edit "$n" --remove-label "$l" >/dev/null && echo "- #$n closed: removed $l" && changed=1
+    done
+  done
+  for b in $(git for-each-ref --merged "$main" --format='%(refname:short)' refs/heads); do
+    [ "$b" = main ] || [ "$b" = "$current" ] && continue
+    git branch -q -d "$b" && echo "- deleted local branch $b (merged)" && changed=1
+  done
+  for b in $(git for-each-ref --merged "$main" --format='%(refname:lstrip=3)' refs/remotes/origin); do
+    [ "$b" = main ] || [ "$b" = HEAD ] || [ "$b" = "$current" ] && continue
+    git push -q origin --delete "$b" && echo "- deleted origin/$b (merged)" && changed=1
+  done
+  [ -n "$changed" ] || echo "- nothing to change"
+  echo
+  echo "To look at (not changed):"
+  gh issue list --state open --limit 200 --json number,title,labels,milestone | jq -r '.[]
+    | ([.labels[].name | select(startswith("state:"))] | length == 0) as $nostate
+    | select($nostate or .milestone == null)
+    | "- #\(.number) \(.title):" + (if $nostate then " no state: label" else "" end) + (if .milestone == null then " no milestone" else "" end)'
+  git for-each-ref --no-merged "$main" --format='%(refname:lstrip=3)%09%(committerdate:short)%09%(subject)' refs/remotes/origin |
+  while IFS=$'\t' read -r b date subject; do
+    if [ "$b" = HEAD ] || [ "$b" = "$current" ]; then continue; fi
+    echo "- origin/$b unmerged, last commit $date: $subject"
+  done
+  git for-each-ref --no-merged "$main" --format='%(refname:short)%09%(upstream:track)%09%(committerdate:short)%09%(subject)' refs/heads |
+  while IFS=$'\t' read -r b track date subject; do
+    if [ "$track" = "[gone]" ]; then echo "- local $b unmerged, its origin branch is gone, last commit $date: $subject"; fi
+  done
+  if [ "$current" != main ] && [ "$(git rev-parse HEAD)" != "$(git rev-parse "$main")" ] && git merge-base --is-ancestor HEAD "$main"; then
+    echo "- current branch $current is merged: switch to main"
+  fi
+  gh pr list --state open --limit 100 --json number,title,updatedAt |
+  jq -r --arg week "$(date -d '7 days ago' +%F)" '.[] | select(.updatedAt[:10] < $week) | "- PR #\(.number) \(.title): untouched since \(.updatedAt[:10])"'
+  return 0
+}
+
 run() {
   case "${1:-}" in
     list) roles ;;
+    tidy) gh_account; tidy ;;
     exit) gh_account; rm -f "$flag"; echo "Unbound: plain model from now on." ;;
     bind) gh_account; mkdir -p .briolink; touch "$flag" ;;
     "")   gh_account; mkdir -p .briolink; touch "$flag"; board ;;
-    *)    echo "usage: scripts/briolink.sh [list|exit|bind]" >&2; return 2 ;;
+    *)    echo "usage: scripts/briolink.sh [list|tidy|exit|bind]" >&2; return 2 ;;
   esac
 }
 
@@ -127,7 +174,7 @@ hook() {
   [ -n "$model_id" ] || model_id=$(jq -r '.model // empty' .claude/settings.json | sed 's/^sonnet$/claude-sonnet-5-5/; s/^opus$/claude-opus-5-5/')
 
   case "$prompt" in
-    /briolink|"/briolink list"|"/briolink exit")
+    /briolink|"/briolink list"|"/briolink tidy"|"/briolink exit")
       arg=${prompt#/briolink}
       out=$(run "${arg# }" 2>&1 || true)
       block "$out" ;;
