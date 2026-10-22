@@ -182,6 +182,7 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 | Session ID and cost estimate | `--output-format json` |
 | Validated results | `--json-schema` |
 | Tools limited to the workspace | `--allowedTools` |
+| A call that reads nothing of the repo or the machine (the adapter's default) | `--tools ""`, `--setting-sources ""`, `--disable-slash-commands`, `--no-session-persistence`, run in an empty directory |
 | Unattended | `--permission-mode dontAsk --permission-prompts none` |
 | Tier per job | `--model sonnet\|opus` |
 | Interactive sessions | `"model": "sonnet"` in `.claude/settings.json`; `/model opus` for a top-tier role (M10) |
