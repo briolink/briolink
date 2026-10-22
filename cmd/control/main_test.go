@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/briolink/briolink/adapter/codehost/github"
 	"github.com/briolink/briolink/control/events"
+	"github.com/briolink/briolink/control/operator"
 	"github.com/briolink/briolink/control/store"
 )
 
@@ -193,6 +196,7 @@ func TestRefusesToStart(t *testing.T) {
 		"key too short":          {same, func(t *testing.T) map[string]string { return credentials(t, "abcd", 0o400) }, "64 hexadecimal digits"},
 		"key not hex":            {same, func(t *testing.T) map[string]string { return credentials(t, strings.Repeat("zz", 32), 0o400) }, "64 hexadecimal digits"},
 		"unknown adapter":        {func(s string) string { return strings.Replace(s, `"coder":"fake"`, `"coder":"ollama"`, 1) }, good, `adapters.coder: no adapter "ollama" (known: fake)`},
+		"github, no section":     {func(s string) string { return strings.Replace(s, `"codehost":"fake"`, `"codehost":"github"`, 1) }, good, `adapters.codehost: github: the "github" section is required`},
 		"wildcard listen":        {func(s string) string { return strings.Replace(s, "@LISTEN@", "0.0.0.0:8443", 1) }, good, "would listen publicly"},
 		"missing routing":        {func(s string) string { return strings.Replace(s, "routing.json", "gone.json", 1) }, good, "gone.json"},
 		"address taken":          {nil, good, "address already in use"},
@@ -414,5 +418,27 @@ func TestCredentialExpiryCheck(t *testing.T) {
 	}
 	if _, err := command(t, cfg, creds, "", "credentials", "-check", "-expiring"); err == nil {
 		t.Error("-check with -expiring was accepted")
+	}
+}
+
+func TestGitHubReadsTheBotKeyFromTheStore(t *testing.T) {
+	cfg := &operator.Config{GitHub: &operator.GitHub{Repo: "acme/site", AppID: 1, InstallationID: 2, KeySecret: "BOT_APP_KEY"}}
+	var asked []string
+	h, err := newGitHub(deps{cfg: cfg, secret: func(ctx context.Context, actor, name string) ([]byte, error) {
+		asked = append(asked, actor+" "+name)
+		return nil, errors.New("sealed")
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gh := h.(*github.Host)
+	if gh.Repo != "acme/site" {
+		t.Errorf("repo %q", gh.Repo)
+	}
+	if _, err := gh.GetIssue(context.Background(), 1); !errors.Is(err, github.ErrKey) {
+		t.Errorf("got %v", err)
+	}
+	if len(asked) != 1 || asked[0] != "codehost BOT_APP_KEY" {
+		t.Errorf("asked %v", asked)
 	}
 }

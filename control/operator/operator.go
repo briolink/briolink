@@ -36,6 +36,19 @@ type Config struct {
 	// $CREDENTIALS_DIRECTORY) holding the master key: 64 hexadecimal digits.
 	MasterKeyCredential string   `json:"master_key_credential"`
 	Adapters            Adapters `json:"adapters"`
+	// GitHub configures the github code host adapter; null or absent when
+	// another one is bound.
+	GitHub *GitHub `json:"github"`
+}
+
+// GitHub is the repository the github code host adapter works on and the App
+// it acts as (A22). The App's private key is a secret: only its name in the
+// secret store is here.
+type GitHub struct {
+	Repo           string `json:"repo"` // "owner/name"
+	AppID          int64  `json:"app_id"`
+	InstallationID int64  `json:"installation_id"`
+	KeySecret      string `json:"key_secret"`
 }
 
 // TLS is a certificate and its key, as files.
@@ -101,6 +114,17 @@ func (c *Config) Validate() error {
 	} {
 		if !check.Text(v) {
 			l.Addf(name, "must be one non-empty line")
+		}
+	}
+	if g := c.GitHub; g != nil {
+		if owner, name, ok := strings.Cut(g.Repo, "/"); !ok || owner == "" || name == "" || strings.Contains(name, "/") || !check.Text(g.Repo) {
+			l.Addf("github.repo", "must be owner/name, got %q", g.Repo)
+		}
+		if g.AppID <= 0 || g.InstallationID <= 0 {
+			l.Addf("github", "app_id and installation_id must be positive")
+		}
+		if !check.Text(g.KeySecret) {
+			l.Addf("github.key_secret", "must name the secret holding the App's private key")
 		}
 	}
 	return l.Err()

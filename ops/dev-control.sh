@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Dev setup of the control plane's secret store (cmd/control): a throwaway-grade
-# install under ~/.local/share/briolink-dev, loopback only, fake adapters, with a
+# install under ~/.local/share/briolink-dev, loopback only, fake adapters (the github
+# section is there for cmd/control's live test; the key's secret name is
+# $BRIOLINK_BOT_KEY_SECRET, default BRIOLINK_BOT_KEY), with a
 # real master key. NOT the production install (systemd-creds, /var/lib/briolink).
 # Creates the folder, the master key (once, never overwritten), operator.json and
 # builds bin/control. Prints the command to run; never prints the key.
@@ -18,7 +20,9 @@ cat > "$D/operator.json" <<JSON
   "database": "$D/control.db",
   "routing_file": "$ROOT/spec/routing.json",
   "master_key_credential": "briolink-master-key",
-  "adapters": { "codehost": "fake", "coder": "fake", "reasoner": "fake" } }
+  "adapters": { "codehost": "fake", "coder": "fake", "reasoner": "fake" },
+  "github": { "repo": "briolink/briolink", "app_id": 5307371, "installation_id": 171151281,
+    "key_secret": "${BRIOLINK_BOT_KEY_SECRET:-BRIOLINK_BOT_KEY}" } }
 JSON
 (cd "$ROOT" && go build -o bin/control ./cmd/control)
 if [ "${1:-}" = run ]; then
