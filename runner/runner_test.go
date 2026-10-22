@@ -142,6 +142,7 @@ func newWS(script func([]string, map[string]string) Output) *fakeWS {
 			target:                                "package acme\n\n// SettlesBalance doc.\nfunc stub() { panic(\"not implemented\") }\n",
 			"domain/acme/settles_balance_test.go": "package acme\n\nfunc TestX() {}\n",
 			"domain/acme/notes.txt":               "not a test",
+			"domain/acme/helper.go":               "package acme\n\nfunc balance() int64 { return 0 }\n",
 		},
 		script: script,
 	}
@@ -172,7 +173,7 @@ func failing(kind, text string, code int) func([]string, map[string]string) Outp
 
 func TestPassOnFirstAttempt(t *testing.T) {
 	ws := newWS(passAll)
-	cd := &scripted{answers: []func() (coder.Response, error){answer("qwen-real", map[string]string{target: "package acme\n"})}}
+	cd := &scripted{answers: []func() (coder.Response, error){answer("qwen-real", map[string]string{target: "package acme"})}}
 	r, rec := setup(ws, cd)
 	res, err := r.Run(context.Background(), 60, testContract(3))
 	if err != nil {
@@ -181,7 +182,7 @@ func TestPassOnFirstAttempt(t *testing.T) {
 	if !res.Passed || len(res.Attempts) != 1 || res.Stop != "" {
 		t.Fatalf("%+v", res)
 	}
-	if ws.files[target] != "package acme\n" {
+	if ws.files[target] != "package acme\n" { // the answer lacked its final newline, which is added
 		t.Errorf("answer not applied: %q", ws.files[target])
 	}
 	if !ws.closed {
@@ -223,22 +224,25 @@ func TestPromptOrderAndRetry(t *testing.T) {
 		t.Errorf("attempt 1: %+v", a)
 	}
 	first, second := cd.calls[0].Parts, cd.calls[1].Parts
-	if len(first) != 3 {
-		t.Fatalf("first call has %d parts, want contract, files, tests", len(first))
+	if len(first) != 4 {
+		t.Fatalf("first call has %d parts, want contract, files, siblings, tests", len(first))
 	}
-	for i, want := range []string{"# Task contract", "# Files you may write", "# Tests"} {
+	for i, want := range []string{"# Task contract", "# Files you may write", "# Other files", "# Tests"} {
 		if !strings.HasPrefix(first[i], want) {
 			t.Errorf("part %d starts %q, want %q", i, first[i][:20], want)
 		}
 	}
-	if !strings.Contains(first[1], "SettlesBalance doc.") || !strings.Contains(first[2], "func TestX()") || strings.Contains(first[2], "not a test") {
-		t.Errorf("files and tests parts wrong:\n%s\n%s", first[1], first[2])
+	if !strings.Contains(first[1], "SettlesBalance doc.") || !strings.Contains(first[3], "func TestX()") || strings.Contains(first[3], "not a test") {
+		t.Errorf("files and tests parts wrong:\n%s\n%s", first[1], first[3])
 	}
-	if len(second) != 4 || strings.Join(second[:3], "") != strings.Join(first, "") {
+	if !strings.Contains(first[2], "func balance()") || strings.Contains(first[2], "not a test") || strings.Contains(first[2], "func stub()") {
+		t.Errorf("siblings part wrong:\n%s", first[2])
+	}
+	if len(second) != 5 || strings.Join(second[:4], "") != strings.Join(first, "") {
 		t.Fatalf("retry must keep the same prefix and add the failure last: %d parts", len(second))
 	}
-	if !strings.HasPrefix(second[3], "# Last failure (check: test)") || !strings.Contains(second[3], "got false") {
-		t.Errorf("failure part: %s", second[3])
+	if !strings.HasPrefix(second[4], "# Last failure (check: test)") || !strings.Contains(second[4], "got false") {
+		t.Errorf("failure part: %s", second[4])
 	}
 	if len(rec.runs) != 2 || rec.runs[0].Outcome != control.RunOutcomeFailed || rec.runs[0].Model != "m1" ||
 		rec.runs[1].Outcome != control.RunOutcomePassed || rec.runs[1].Model != "m2" {
@@ -364,19 +368,19 @@ func TestMinutesBudgetSpent(t *testing.T) {
 
 func TestEachAttemptStartsFromTheOriginalFiles(t *testing.T) {
 	c := testContract(1)
-	c.AllowedFiles = []string{target, "domain/acme/helper.go"}
+	c.AllowedFiles = []string{target, "domain/acme/extra.go"}
 	c.ExpectedArtifacts = []string{target}
 	ws := newWS(failing("go test", "no", 1))
 	cd := &scripted{answers: []func() (coder.Response, error){
-		answer("m", map[string]string{target: "package acme // 1\n", "domain/acme/helper.go": "package acme // helper\n"}),
+		answer("m", map[string]string{target: "package acme // 1\n", "domain/acme/extra.go": "package acme // helper\n"}),
 		answer("m", map[string]string{target: "package acme // 2\n"}),
 	}}
 	r, _ := setup(ws, cd)
 	if _, err := r.Run(context.Background(), 60, c); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := ws.files["domain/acme/helper.go"]; ok {
-		t.Error("the first attempt's helper.go survived into the second")
+	if _, ok := ws.files["domain/acme/extra.go"]; ok {
+		t.Error("the first attempt's extra.go survived into the second")
 	}
 }
 

@@ -17,10 +17,11 @@ See [docs/2-architecture.md § Runner](../docs/2-architecture.md#runner).
    `docker run --network none` in the build image of
    [container/](container/README.md), with `GOPROXY=off`.
 2. **Coder.** One request, parts in this order: the contract, the files it may
-   write as they stand (signature and documentation), the `_test.go` files
-   beside them, and, on a retry, the last failure (check kind and output,
+   write as they stand (signature and documentation), the package's other `.go`
+   files, its `_test.go` files, and, on a retry, the last failure (check kind and output,
    capped at `MaxFailure` bytes).
-3. **Apply.** An answer naming any path outside `allowed_files` is rejected
+3. **Apply.** A final newline is added to a file that lacks one (a model's JSON
+   string drops it); nothing else is changed. An answer naming any path outside `allowed_files` is rejected
    whole (check kind `scope`) and nothing is written. Before each attempt the
    allowed files go back to their state at the start.
 4. **Checks**, in order, stopping at the first failure: `gofmt -d` and `go vet`
@@ -57,3 +58,10 @@ repository; and `TestAcmeChecks`, the real checks (`gofmt`, `go vet`,
 `SettlesBalance` with a scripted coder. `TestLive` passes the same function
 through a real coder: `BRIOLINK_LIVE_OLLAMA=<model> go test -run TestLive
 -v ./runner/`.
+
+**Live result (2026-10-21):** `qwen3-coder:30b` through Ollama passed `SettlesBalance` in 4 of 4 runs, each
+on the first attempt, all five checks, about 7 s. Before the package's other files and
+the final newline were added, the same model failed four attempts (gofmt for a
+missing final newline, then `invoice.Total` undefined: it could not see the
+helpers); `qwen2.5:1.5b` fails (spaces for tabs, no `amount > 0`). Four runs per
+model, so not a solve rate. The commands ran on the host, not in the build image.

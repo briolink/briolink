@@ -201,7 +201,7 @@ func (r *Runner) attempt(ctx context.Context, ws Workspace, c *contract.Contract
 		return kindScope, "rejected, not in allowed_files: " + strings.Join(outside, ", "), nil
 	}
 	for _, p := range att.Files {
-		if err := ws.Write(p, []byte(resp.Files[p])); err != nil {
+		if err := ws.Write(p, []byte(withNewline(resp.Files[p]))); err != nil {
 			return "", "", fmt.Errorf("runner: write %s: %w", p, err)
 		}
 	}
@@ -257,7 +257,8 @@ func restore(ws Workspace, base map[string][]byte) error {
 
 // prefix is what the coder is sent, stable parts first so a provider can cache
 // it (step 2): the contract, the files it may write as they stand (the
-// signature and its documentation), then the tests in their directories.
+// signature and its documentation), the package's other files (the helpers and
+// types the function uses), then the tests.
 func (r *Runner) prefix(ws Workspace, c *contract.Contract, base map[string][]byte) ([]string, error) {
 	js, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -272,7 +273,8 @@ func (r *Runner) prefix(ws Workspace, c *contract.Contract, base map[string][]by
 	}
 	parts = append(parts, files.String())
 
-	var tests strings.Builder
+	var siblings, tests strings.Builder
+	siblings.WriteString("# Other files of the package, for reference\n")
 	tests.WriteString("# Tests\n")
 	seen := map[string]bool{}
 	for _, f := range c.AllowedFiles {
@@ -287,18 +289,22 @@ func (r *Runner) prefix(ws Workspace, c *contract.Contract, base map[string][]by
 		}
 		sort.Strings(names)
 		for _, n := range names {
-			if !strings.HasSuffix(n, "_test.go") {
+			p := path.Join(dir, n)
+			if !strings.HasSuffix(n, ".go") || contains(c.AllowedFiles, p) {
 				continue
 			}
-			p := path.Join(dir, n)
 			b, err := ws.Read(p)
 			if err != nil {
 				return nil, fmt.Errorf("runner: read %s: %w", p, err)
 			}
-			tests.WriteString(block(p, b))
+			if strings.HasSuffix(n, "_test.go") {
+				tests.WriteString(block(p, b))
+			} else {
+				siblings.WriteString(block(p, b))
+			}
 		}
 	}
-	return append(parts, tests.String()), nil
+	return append(parts, siblings.String(), tests.String()), nil
 }
 
 func block(name string, content []byte) string {
@@ -315,4 +321,13 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// withNewline ends a file with a newline: a model's JSON string often drops
+// it, and gofmt requires it. The only change the runner makes to an answer.
+func withNewline(s string) string {
+	if s == "" || strings.HasSuffix(s, "\n") {
+		return s
+	}
+	return s + "\n"
 }
