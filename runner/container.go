@@ -46,6 +46,12 @@ type Container struct {
 	ModCache string // read-only: the pre-seeded module cache (seed-modcache.sh)
 	Cache    string // read-write: the build cache
 
+	// Push publishes a pass: the remote to push to ("origin" when empty) and
+	// the identity of the commit (git's own config when empty).
+	Remote   string
+	GitName  string
+	GitEmail string
+
 	Engine string  // the container engine; "docker" when empty
 	User   string  // uid:gid the container runs as; the current user's when empty
 	Cmd    Command // runs host commands; os/exec when nil
@@ -173,6 +179,36 @@ func (w *worktree) List(dir string) ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+// Push commits paths in the worktree and pushes the commit as branch of the
+// remote, replacing a branch of that name an earlier run left. It runs on the
+// host, not in the container: it is the one step that needs the network.
+func (w *worktree) Push(ctx context.Context, branch, message string, paths []string) error {
+	c := w.c
+	remote := c.Remote
+	if remote == "" {
+		remote = "origin"
+	}
+	git := []string{"git", "-C", w.dir}
+	if c.GitName != "" {
+		git = append(git, "-c", "user.name="+c.GitName)
+	}
+	if c.GitEmail != "" {
+		git = append(git, "-c", "user.email="+c.GitEmail)
+	}
+	steps := [][]string{
+		append([]string{"add", "-A", "--"}, paths...),
+		{"commit", "-q", "-m", message},
+		{"push", "-q", "--force", remote, "HEAD:refs/heads/" + branch},
+	}
+	for _, step := range steps {
+		out, code, err := c.run(ctx, append(append([]string(nil), git...), step...)...)
+		if err != nil || code != 0 {
+			return fmt.Errorf("git %s: %v: %s", step[0], errOr(err, code), out)
+		}
+	}
+	return nil
 }
 
 func (w *worktree) Close() error {

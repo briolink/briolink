@@ -33,3 +33,10 @@ type Output struct {
 	Code int
 	Text string
 }
+
+// Pusher is a Workspace that can publish its changes: commit the given files
+// and push the commit as a branch of the project's remote, replacing a branch
+// of that name left by an earlier run. A pass needs one to open a pull request.
+type Pusher interface {
+	Push(ctx context.Context, branch, message string, paths []string) error
+}
