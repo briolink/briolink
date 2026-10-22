@@ -97,6 +97,6 @@ label of its issue; none is `unlabelled`, more than one is `conflict`.
 - **Other writes**: only the credential routes write through the API. The runner
   ([#60](https://github.com/briolink/briolink/issues/60)) will add run
   records through `store.AddRun`; the audit log is written by `store.AddAudit`.
-- **Real adapters**: only `fake` can be bound to a port today (`cmd/control`).
+- **Real adapters**: the code host can be bound to `github` (`cmd/control`); the coder and the reasoner only to `fake`.
 
 See [docs/2-architecture.md § Control plane](../docs/2-architecture.md#control-plane).

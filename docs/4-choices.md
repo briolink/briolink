@@ -156,10 +156,10 @@ Each entry: **fallback** (how we keep working while it fails, prepared in advanc
 | Contract item | Feature |
 | --- | --- |
 | Protected branches, required reviews | Branch protection on `main` and `production`; `CODEOWNERS` makes the founder owner of `tasks/` and `spec/` |
-| Work tracking | Issues, the standard labels ([2-architecture.md](2-architecture.md#work-tracking)), milestones per stage, sub-issues for split tasks |
+| Work tracking | REST API v3 through the code host adapter ([adapter/codehost/github](../adapter/codehost/github/README.md)): issues, labels, milestones, comments, git refs, branches, pull requests; issues, the standard labels ([2-architecture.md](2-architecture.md#work-tracking)), milestones per stage, sub-issues for split tasks |
 | CI on tags | Actions: `ci.yml` (vet, tests, JS lint, contract test), `release.yml` (on tag: tests, multi-arch image, attestation) |
 | Registry with attestations | GHCR; a cleanup step keeps the last 10 versions (private storage is limited on Free) |
-| Bot identity (A22) | A GitHub App, `briolink-bot`, owned by the `briolink` org and installed on each repo it works on (client orgs install it too). Permissions: contents, pull requests and issues read and write, metadata read; never administration or workflows, so it can't change settings or CI. Its private key lives in the control plane's secret store; it mints one-hour installation tokens. A ruleset lets only the App create `task/*` branches. App ID `5307371`; installation on the `briolink` org `171151281` (not secrets; they move into `operator.json` when it exists) |
+| Bot identity (A22) | A GitHub App, `briolink-bot`, owned by the `briolink` org and installed on each repo it works on (client orgs install it too). Permissions: contents, pull requests and issues read and write, metadata read; never administration or workflows, so it can't change settings or CI. Its private key lives in the control plane's secret store; it mints one-hour installation tokens. A ruleset lets only the App create `task/*` branches. App ID `5307371`; installation on the `briolink` org `171151281` (not secrets: `operator.json`'s `github` section) |
 | Keys | Deploy timer: a fine-grained, packages read-only token per client; other scopes in [3-hosting.md](3-hosting.md#control-plane) |
 
 - **Provisioned per client:** the repo from the template, branch protection, required reviews, `CODEOWNERS`, the labels, Actions variables.

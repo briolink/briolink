@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/briolink/briolink/adapter/codehost/github"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/operator"
@@ -53,37 +54,69 @@ type ports struct {
 	reasoner reasoner.Reasoner
 }
 
+// deps is what an adapter is built from: the operator config, and the
+// secret store's Use for the secrets it needs (each use is audited under the
+// actor given, the port's name).
+type deps struct {
+	cfg    *operator.Config
+	secret func(ctx context.Context, actor, name string) ([]byte, error)
+}
+
 // The adapters each port can be bound to, by the name operator.json gives.
 // Real adapters are added here as they pass their port's contract tests.
 var (
-	codeHosts = map[string]func() codehost.Host{"fake": func() codehost.Host { return codehost.NewFake() }}
-	coders    = map[string]func() coder.Coder{"fake": func() coder.Coder { return &coder.Fake{} }}
-	reasoners = map[string]func() reasoner.Reasoner{"fake": func() reasoner.Reasoner { return &reasoner.Fake{} }}
+	codeHosts = map[string]func(deps) (codehost.Host, error){
+		"fake":   func(deps) (codehost.Host, error) { return codehost.NewFake(), nil },
+		"github": newGitHub,
+	}
+	coders    = map[string]func(deps) (coder.Coder, error){"fake": func(deps) (coder.Coder, error) { return &coder.Fake{}, nil }}
+	reasoners = map[string]func(deps) (reasoner.Reasoner, error){"fake": func(deps) (reasoner.Reasoner, error) { return &reasoner.Fake{}, nil }}
 )
 
-func pick[T any](port, name string, from map[string]func() T) (T, error) {
-	if f, ok := from[name]; ok {
-		return f(), nil
+// newGitHub binds the code host to the repository in operator.json's github
+// section, acting as the App (A22): its key is read from the secret store on
+// each token mint, never kept.
+func newGitHub(d deps) (codehost.Host, error) {
+	g := d.cfg.GitHub
+	if g == nil {
+		return nil, errors.New(`the "github" section is required`)
 	}
-	var zero T
-	known := make([]string, 0, len(from))
-	for k := range from {
-		known = append(known, k)
-	}
-	sort.Strings(known)
-	return zero, fmt.Errorf("adapters.%s: no adapter %q (known: %s)", port, name, strings.Join(known, ", "))
+	return &github.Host{Repo: g.Repo, Tokens: &github.TokenSource{
+		AppID:          g.AppID,
+		InstallationID: g.InstallationID,
+		Key:            func(ctx context.Context) ([]byte, error) { return d.secret(ctx, "codehost", g.KeySecret) },
+	}}, nil
 }
 
-func wire(a operator.Adapters) (ports, error) {
+func pick[T any](port, name string, from map[string]func(deps) (T, error), d deps) (T, error) {
+	var zero T
+	f, ok := from[name]
+	if !ok {
+		known := make([]string, 0, len(from))
+		for k := range from {
+			known = append(known, k)
+		}
+		sort.Strings(known)
+		return zero, fmt.Errorf("adapters.%s: no adapter %q (known: %s)", port, name, strings.Join(known, ", "))
+	}
+	v, err := f(d)
+	if err != nil {
+		return zero, fmt.Errorf("adapters.%s: %s: %w", port, name, err)
+	}
+	return v, nil
+}
+
+func wire(d deps) (ports, error) {
 	var p ports
 	var err error
-	if p.codeHost, err = pick("codehost", a.CodeHost, codeHosts); err != nil {
+	a := d.cfg.Adapters
+	if p.codeHost, err = pick("codehost", a.CodeHost, codeHosts, d); err != nil {
 		return p, err
 	}
-	if p.coder, err = pick("coder", a.Coder, coders); err != nil {
+	if p.coder, err = pick("coder", a.Coder, coders, d); err != nil {
 		return p, err
 	}
-	p.reasoner, err = pick("reasoner", a.Reasoner, reasoners)
+	p.reasoner, err = pick("reasoner", a.Reasoner, reasoners, d)
 	return p, err
 }
 
@@ -142,7 +175,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	}
 	command := fs.Args()
 	if len(command) == 0 {
-		if _, err = wire(cfg.Adapters); err != nil {
+		// Refuse a bad binding before touching the database; nothing is
+		// used yet, so no secret is needed.
+		noSecret := func(context.Context, string, string) ([]byte, error) {
+			return nil, errors.New("the secret store is not open")
+		}
+		if _, err = wire(deps{cfg: cfg, secret: noSecret}); err != nil {
 			return err
 		}
 	}
@@ -168,7 +206,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	if len(command) > 0 {
 		return admin(ctx, vlt, command, in, out)
 	}
-	p, err := wire(cfg.Adapters)
+	p, err := wire(deps{cfg: cfg, secret: vlt.Use})
 	if err != nil {
 		return err
 	}
