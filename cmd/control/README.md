@@ -24,6 +24,8 @@ bin/control [-config operator.json] <command>
     "installation_id": 171151281, "key_secret": "BRIOLINK_BOT_KEY" } }
 ```
 
+- `adapters.coder` is `fake` or `ollama` (the routing table's `pure_function`
+  model); the runner ([cmd/runner](../runner/README.md)) uses it.
 - `adapters.codehost` is `fake` or `github`. `github` acts as the bot (A22) on
   `github.repo`; it reads the App's private key from the secret store
   (`key_secret`, audited as actor `codehost`) on each hourly token mint. The
