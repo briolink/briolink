@@ -39,10 +39,11 @@ func (Invoice) Fire(i int) []c {
 		return []c{{invoice(0, line(1, 1)), acme.InvoiceIssue{Number: "n1", Now: now}}}
 	case 2: // draft void: no guard
 		return []c{{invoice(0), acme.InvoiceVoid{Reason: "mistake"}}}
-	case 3: // issued record_payment: the amount equals the balance, with and without a part paid
+	case 3: // issued record_payment: the amount equals the balance, with and without a part paid, down to one cent
 		return []c{
 			{invoice(0), acme.InvoiceRecordPayment{Amount: 1000, Now: now}},
 			{invoice(400), acme.InvoiceRecordPayment{Amount: 600, Now: now}},
+			{invoice(0, line(1, 1)), acme.InvoiceRecordPayment{Amount: 1, Now: now}},
 		}
 	case 4: // issued record_payment: one cent, and one cent below the balance
 		return []c{
