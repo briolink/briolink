@@ -1,9 +1,10 @@
-// Package runner is the methodology's loop (docs/2-architecture.md § Runner,
-// steps 1-5): a workspace per task, the coder through its port, the answer
-// applied to the allowed files only, the checks, and retries until the budget
-// is spent or two attempts fail the same way. It changes neither acceptance
-// criteria nor its own routing, and never skips a check. Escalating to the
-// reasoner and the founder (steps 6, 7) takes the Result it returns.
+// Package runner is the methodology's loop (docs/2-architecture.md § Runner):
+// a workspace per task, the coder through its port, the answer applied to the
+// allowed files only, the checks, and retries until the budget is spent or two
+// attempts fail the same way; then the reasoner at the tiers the routing table
+// gives, then the founder; a pull request on a pass and the attempt summary on
+// the issue. It changes neither acceptance criteria nor its own routing, and
+// never skips a check.
 package runner
 
 import (
@@ -20,12 +21,21 @@ import (
 	"github.com/briolink/briolink/control/routing"
 	"github.com/briolink/briolink/control/store"
 	"github.com/briolink/briolink/gen/domain/control"
+	"github.com/briolink/briolink/port/codehost"
 	"github.com/briolink/briolink/port/coder"
+	"github.com/briolink/briolink/port/reasoner"
 	"github.com/briolink/briolink/runner/contract"
 )
 
 // Job is the routing row that chooses the coder's tier for the runner's attempts.
 const Job = "pure_function"
+
+// The routing rows that choose the reasoner's tier for the first and the
+// second escalation answer.
+const (
+	JobEscalationFirst  = "escalation.first"
+	JobEscalationSecond = "escalation.second"
+)
 
 // DefaultMaxFailure caps the failure output sent back to the coder, in bytes.
 const DefaultMaxFailure = 8000
@@ -46,6 +56,20 @@ type Runner struct {
 	Generate   []string         // the regenerate-and-diff command; DefaultGenerate when nil
 	MaxFailure int              // DefaultMaxFailure when 0
 	Now        func() time.Time // time.Now when nil; measures the minutes budget
+
+	// Reasoner takes a task the coder could not pass (steps 6): without it
+	// the founder is next. Its tiers are the routing rows JobEscalationFirst
+	// and JobEscalationSecond.
+	Reasoner reasoner.Reasoner
+	// Host takes the outcome (step 5, 7): the pull request on a pass, the
+	// attempt summary on the issue, and state:needs-founder on a hand-off. A
+	// pass needs a Workspace that is a Pusher. Without a Host the Result is
+	// all there is.
+	Host codehost.Host
+	// Base is the branch a pull request asks to merge into; "main" when empty.
+	Base string
+	// History gives the link to a task's full run history, for the hand-off.
+	History func(issue int64) string
 }
 
 // Stop says why a run that did not pass ended. The next step is escalation.
@@ -57,30 +81,45 @@ const (
 	StopSame     Stop = "same-twice" // two attempts failed the same way
 )
 
-// Attempt is one try, as recorded.
+// Attempt is one try, as recorded: the coder's, then the reasoner's.
 type Attempt struct {
-	N      int
-	Model  string
-	Files  []string // paths the coder returned
-	Check  string   // the failed check's kind; "" when the attempt passed
-	Output string   // that check's output, untrimmed
+	N         int
+	Tier      string // the routing tier that answered
+	Model     string
+	Files     []string          // paths returned
+	Answer    map[string]string // the files as returned
+	Diagnosis string            // the reasoner's one-line diagnosis
+	Check     string            // the failed check's kind; "" when the attempt passed
+	Output    string            // that check's output, untrimmed
 }
 
 // Result is what a run ended in.
 type Result struct {
 	Passed   bool
-	Stop     Stop // set when !Passed
+	Stop     Stop // why the coder stopped; set when it did not pass
 	Attempts []Attempt
+	// SpentUSD is what the reasoner cost, never shown outside the control plane.
+	SpentUSD float64
+	// HandOff is why the founder has the task; set when !Passed and the
+	// reasoner (if any) had its turn.
+	HandOff     string
+	PullRequest int // the number of the pull request a pass opened
 }
 
 // Run works one contract: issue is the task's issue number, the key of its
 // run records. A returned error means the run could not be made or kept
 // (a workspace that cannot be created, a record that cannot be written, the
-// context cancelled); a task the coder could not pass is a Result.
+// context cancelled, the code host refusing); a task nobody could pass is a
+// Result with a HandOff.
 func (r *Runner) Run(ctx context.Context, issue int64, c *contract.Contract) (*Result, error) {
 	tier, model, err := r.tier()
 	if err != nil {
 		return nil, err
+	}
+	if r.Reasoner != nil {
+		if err := r.escalationTiers(); err != nil {
+			return nil, err
+		}
 	}
 	now := r.Now
 	if now == nil {
@@ -105,27 +144,55 @@ func (r *Runner) Run(ctx context.Context, issue int64, c *contract.Contract) (*R
 	if err != nil {
 		return nil, err
 	}
-	checks := r.checks(c)
-	maxFail := r.MaxFailure
-	if maxFail == 0 {
-		maxFail = DefaultMaxFailure
+	w := &work{
+		r: r, issue: issue, c: c, ws: ws, base: base, prefix: prefix,
+		checks: r.checks(c), maxFail: r.MaxFailure, res: &Result{},
+	}
+	if w.maxFail == 0 {
+		w.maxFail = DefaultMaxFailure
 	}
 
-	res := &Result{}
+	// The last failed attempt is recorded only once it is known whether the
+	// run goes on, so a hand-up is recorded as escalated.
+	var pend *store.NewRun
+	pendN := 0
+	settle := func(up bool) error {
+		if pend == nil {
+			return nil
+		}
+		if up && r.Reasoner != nil && pend.Outcome == control.RunOutcomeFailed {
+			pend.Outcome = control.RunOutcomeEscalated
+		}
+		_, err := r.Records.AddRun(context.WithoutCancel(ctx), *pend)
+		pend = nil
+		if err != nil {
+			return fmt.Errorf("runner: record attempt %d: %w", pendN, err)
+		}
+		return nil
+	}
+
 	var last string // the previous failure, as sent to the coder
 	var lastSig string
-	for n := 1; n <= 1+c.Budget.CoderRetries; n++ {
-		if now().Sub(start) >= budget {
-			res.Stop = StopMinutes
-			return res, nil
+attempts:
+	for n := 1; ; n++ {
+		if n > 1+c.Budget.CoderRetries {
+			w.res.Stop = StopAttempts
+			break
 		}
-		att := Attempt{N: n, Model: model}
+		if now().Sub(start) >= budget {
+			w.res.Stop = StopMinutes
+			break
+		}
+		if err := settle(false); err != nil {
+			return nil, err
+		}
+		att := Attempt{N: n, Tier: tier, Model: model}
 		parts := prefix
 		if last != "" {
 			parts = append(append([]string(nil), prefix...), last)
 		}
 
-		kind, output, err := r.attempt(runCtx, ws, c, base, checks, parts, &att)
+		kind, output, err := r.attempt(runCtx, w, parts, &att)
 		if err != nil && runCtx.Err() == nil {
 			return nil, err
 		}
@@ -140,38 +207,66 @@ func (r *Runner) Run(ctx context.Context, issue int64, c *contract.Contract) (*R
 			}
 		}
 		att.Check, att.Output = kind, output
-		res.Attempts = append(res.Attempts, att)
-		if _, rerr := r.Records.AddRun(context.WithoutCancel(ctx), store.NewRun{Task: issue, Tier: tier, Job: Job, Model: att.Model, Outcome: outcome}); rerr != nil {
-			return nil, fmt.Errorf("runner: record attempt %d: %w", n, rerr)
-		}
+		w.res.Attempts = append(w.res.Attempts, att)
+		pend, pendN = &store.NewRun{Task: issue, Tier: tier, Job: Job, Model: att.Model, Outcome: outcome}, n
 
 		switch outcome {
 		case control.RunOutcomePassed:
-			res.Passed = true
-			return res, nil
+			w.res.Passed = true
+			if err := settle(false); err != nil {
+				return nil, err
+			}
+			break attempts
 		case control.RunOutcomeCancelled:
-			return res, ctx.Err()
+			if err := settle(false); err != nil {
+				return nil, err
+			}
+			return w.res, ctx.Err()
 		}
 		if runCtx.Err() != nil {
-			res.Stop = StopMinutes
-			return res, nil
+			w.res.Stop = StopMinutes
+			break
 		}
 		sig := signature(kind, output)
 		if sig == lastSig {
-			res.Stop = StopSame
-			return res, nil
+			w.res.Stop = StopSame
+			break
 		}
-		last, lastSig = fmt.Sprintf("# Last failure (check: %s)\n\n%s", kind, trim(output, maxFail)), sig
+		last, lastSig = fmt.Sprintf("# Last failure (check: %s)\n\n%s", kind, trim(output, w.maxFail)), sig
 	}
-	res.Stop = StopAttempts
-	return res, nil
+	if err := settle(true); err != nil {
+		return nil, err
+	}
+
+	if !w.res.Passed && r.Reasoner != nil {
+		if err := w.escalate(ctx); err != nil {
+			return w.res, err
+		}
+	}
+	if err := w.conclude(ctx); err != nil {
+		return w.res, err
+	}
+	return w.res, nil
+}
+
+// work is one run in progress.
+type work struct {
+	r       *Runner
+	issue   int64
+	c       *contract.Contract
+	ws      Workspace
+	base    map[string][]byte // the allowed files as they were
+	prefix  []string          // what the coder is sent before any failure
+	checks  []check
+	maxFail int
+	res     *Result
 }
 
 // attempt restores the allowed files, asks the coder, applies the answer and
 // runs the checks. It returns the failed check's kind and output, or "" when
 // everything passed; the error is for what stopped the attempt from finishing.
-func (r *Runner) attempt(ctx context.Context, ws Workspace, c *contract.Contract, base map[string][]byte, checks []check, parts []string, att *Attempt) (kind, output string, err error) {
-	if err := restore(ws, base); err != nil {
+func (r *Runner) attempt(ctx context.Context, w *work, parts []string, att *Attempt) (kind, output string, err error) {
+	if err := restore(w.ws, w.base); err != nil {
 		return "", "", err
 	}
 	resp, err := r.Coder.Code(ctx, coder.Request{Parts: parts})
@@ -184,16 +279,24 @@ func (r *Runner) attempt(ctx context.Context, ws Workspace, c *contract.Contract
 	if resp.Model != "" {
 		att.Model = resp.Model
 	}
-	for p := range resp.Files {
+	return w.apply(ctx, resp.Files, kindCoder, att)
+}
+
+// apply writes an answer to the allowed files and runs the checks on it: the
+// same for the coder and the reasoner. An answer naming any path outside
+// allowed_files is rejected whole; empty is a failure of kind none.
+func (w *work) apply(ctx context.Context, files map[string]string, none string, att *Attempt) (kind, output string, err error) {
+	att.Answer = files
+	for p := range files {
 		att.Files = append(att.Files, p)
 	}
 	sort.Strings(att.Files)
-	if len(resp.Files) == 0 {
-		return kindCoder, "the coder returned no files", nil
+	if len(files) == 0 {
+		return none, "no files returned", nil
 	}
 	var outside []string
 	for _, p := range att.Files {
-		if !contains(c.AllowedFiles, p) {
+		if !contains(w.c.AllowedFiles, p) {
 			outside = append(outside, p)
 		}
 	}
@@ -201,11 +304,11 @@ func (r *Runner) attempt(ctx context.Context, ws Workspace, c *contract.Contract
 		return kindScope, "rejected, not in allowed_files: " + strings.Join(outside, ", "), nil
 	}
 	for _, p := range att.Files {
-		if err := ws.Write(p, []byte(withNewline(resp.Files[p]))); err != nil {
+		if err := w.ws.Write(p, []byte(withNewline(files[p]))); err != nil {
 			return "", "", fmt.Errorf("runner: write %s: %w", p, err)
 		}
 	}
-	return run(ctx, ws, checks)
+	return run(ctx, w.ws, w.checks)
 }
 
 // tier resolves the routing row: the tier it names and the model filling it.

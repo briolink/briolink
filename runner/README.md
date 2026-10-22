@@ -2,12 +2,12 @@
 
 The methodology's loop as a module of the control plane: an offline
 workspace per task, the coder through its port, checks, retries, escalation
-to the reasoner then the founder, and the run record. It changes neither
+to the reasoner then the founder, the pull request and the run record. It changes neither
 acceptance criteria nor its own routing, and never skips a check.
 
 See [docs/2-architecture.md § Runner](../docs/2-architecture.md#runner).
 
-## Built (steps 1–5, up to a passing attempt or a stop)
+## Built (steps 1–7)
 
 `Runner.Run(ctx, issue, contract)` works one task contract:
 
@@ -34,25 +34,53 @@ See [docs/2-architecture.md § Runner](../docs/2-architecture.md#runner).
    or two consecutive attempts fail the same check with the same output,
    durations ignored (`StopSame`).
 
+6. **Escalation** (a `Reasoner` is set). A run the coder stopped on goes to the
+   reasoner at the tiers `escalation.first`, then `escalation.second` give,
+   each within what is left of the contract's `reasoner_usd` (`MaxUSD`; none left
+   means no call). Its input: the coder's input, the model slice (the files of
+   `spec_refs`), the last attempt and its trimmed failure, and the failing test
+   names of the earlier attempts. It answers `{diagnosis, files}`; the files go
+   through the same scope rule and the same checks as the coder's. A call that
+   errors is a failed attempt of kind `reasoner`; so is a malformed or empty
+   answer. The coder's last attempt and every failed reasoner attempt are
+   recorded `escalated`; a reasoner pass is `passed`.
+7. **Outcome** (a `Host` is set). On a pass the workspace (a `Pusher`) commits
+   the passing attempt's files and pushes branch `task/<issue>-<task_id>`,
+   replacing one a rerun left; a pull request into `Base` (`main`) closes the
+   issue. Otherwise the issue gets `state:needs-founder` (`state:queued` and
+   `state:running` come off) with the reason and, when `History` is set, a link
+   to the full history. Both post the attempt summary on the issue: each
+   attempt's tier, model and failed check, the reasoner's one-line diagnosis,
+   no cost figures. Without a reasoner the founder follows the coder directly.
+
 Every attempt is one run record (`Records.AddRun`): the tier and the routing
-row (`pure_function`) from `spec/routing.json`, the model the coder named
-(the tier's model when it named none), and `passed`, `failed` or `cancelled`.
+row (`pure_function`, or the escalation row) from `spec/routing.json`, the model
+that answered (the tier's model when it named none), and `passed`, `failed`,
+`escalated` or `cancelled`.
+
+`Container` pushes from the host, not the container (the one step with a
+network), to `Remote` (`origin`) as `GitName <GitEmail>`; the credential is the
+host's git configuration.
+
+The minutes budget bounds the coder's loop; escalation runs on the caller's
+context.
 
 ## Not built
 
-- Opening the pull request and posting the attempt summary on a pass (step 5).
-- Escalation to the reasoner and the founder (steps 6 and 7): a `Result` that
-  did not pass, with its `Stop` and attempts, is their input. Attempts that
-  ended a run are recorded `failed`, not `escalated`, until they exist.
-- A project's own `routing` override of the tier.
+- The founder is not *assigned* (the code host port has no assignee), only
+  labelled.
+- A project's own `routing` override of the tier ([#107](https://github.com/briolink/briolink/issues/107)).
 - The entry point (`cmd/*`) that wires the adapters, the database and the
-  contracts of `tasks/`.
+  contracts of `tasks/` ([#106](https://github.com/briolink/briolink/issues/106)).
+- A real run: no `acme` task has opened its pull request through the runner yet.
 
 ## Tests
 
 `go test ./runner/...` covers, on fakes, a pass, a retry, a write outside the
 allowed files, a failed check of each kind, the early stop, a spent attempts
-budget and a spent minutes budget; the container binding against a real git
+budget and a spent minutes budget; escalation to a first answer, a second answer,
+a hand-off to the founder and a spent `reasoner_usd`, with the pull request and
+the issue summary on the fake code host; a push of the real `git` to a bare remote; the container binding against a real git
 repository; and `TestAcmeChecks`, the real checks (`gofmt`, `go vet`,
 `generate -check`, the derived tests, `mutate`) on the acme fixture's
 `SettlesBalance` with a scripted coder. `TestLive` passes the same function
