@@ -147,7 +147,7 @@ Each client runs as **one rootless pod under its own Linux user**, started by sy
 | `app-prev` | The preview version, on demand |
 | `tunnel` | The edge's tunnel agent for both environments, one per client (each lives in the client's edge account) |
 
-One shared Litestream daemon runs on the host under a `backup` user.
+One shared Litestream daemon runs on the host under a `backup` user: one systemd service and one config built from each client's `dbs` entry (`ops/litestream-install.sh`, `ops/litestream-client.sh`). The client repo owns its entry; the daemon's environment holds each client's bucket-scoped key (root-only on disk); `backup` reads and writes each database through an ACL.
 
 ### Isolation
 

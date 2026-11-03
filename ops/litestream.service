@@ -1,0 +1,28 @@
+[Unit]
+Description=Litestream, the shared SQLite replication daemon (every client database, one process)
+Documentation=https://github.com/briolink/briolink/blob/main/docs/3-hosting.md#backups
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=backup
+Group=backup
+# systemd reads this as root, so the keys stay root-only on disk; the config expands ${VAR} from it.
+EnvironmentFile=/etc/litestream/env
+ExecStart=/usr/bin/litestream replicate -config /etc/litestream/litestream.yml
+Restart=always
+RestartSec=5
+# /var/lib/litestream: the daemon's state (a meta-path per client lives under it).
+StateDirectory=litestream
+ProtectSystem=strict
+ReadWritePaths=/srv
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
