@@ -9,8 +9,9 @@ How the **Host** offer runs: serving, servers, backups, failover, trials and ope
 Public pages never touch a server (A7): they are baked to HTML in object storage and served by the edge from the client's own account. Servers handle only live actions and baking.
 
 ```text
-Browser ──HTML, JS──────────────▶ Edge: static hosting + request function ─▶ object storage (site)
-        ──images, live JSON─────▶ Edge: public bucket domain ──────────────▶ object storage (media)
+Browser ──hard load: HTML───────▶ Edge: Worker, R2 binding ───────────────▶ object storage (site)
+        ──in-page navigation,───▶ Edge: public bucket domain ──────────────▶ object storage (media)
+          page JSON, images, live JSON (no Worker call)
         ──API calls, uploads────▶ Edge: tunnel (rate limit, bot challenge, access gateway on admin)
                                         └─ outbound-only ─▶ Pod: Go app (API + bake worker), SQLite
 Pod ──bake: S3 PUT──▶ object storage      Pod ──Litestream, ~1 s──▶ offsite backup + ops host
@@ -46,7 +47,7 @@ Preview and production each have their own hostnames, buckets, site project, ins
 <client>/
 ├── AGENTS.md          same skeleton as this repo: AGENTS.md, agents/ and the /briolink command (synced from the template)
 ├── api/               Go module: cmd/server/, spec/, gen/, internal/{core,plugins,domain}/, templates/, migrations/, tests/
-├── app/               public/ (ES modules, CSS, fonts, headers), edge/ (the request function)
+├── app/               public/ (ES modules, CSS, fonts, headers), edge/ (the Worker)
 ├── container/         Containerfile (arm64 + amd64), Quadlet unit templates
 ├── compose.yaml       dev stack
 ├── docs/              the client's specs, decisions, bindings
@@ -63,8 +64,8 @@ A page is re-baked within about a minute of a change; anything faster is fetched
 
 | Data | Where | Fresh |
 | --- | --- | --- |
-| Content pages | Baked HTML | < 1 min after an edit |
-| Search and filter index | Baked JSON per section plus a small global index; split above ~300 KB gzipped | Same |
+| Content pages | Baked HTML, with the same page as JSON beside it (data format v1, below) | < 1 min after an edit |
+| Search and filter index | Baked JSON, one search index per locale; split above ~300 KB gzipped | Same |
 | Live state (current price, count, end time, stock) | `live/<id>.json` in the media bucket | 2 s edge TTL; the user's own action is confirmed in the response |
 | Per-user data | API, `no-store` | Live |
 
@@ -76,8 +77,12 @@ With 1,000 viewers polling every 2 s, the server sees about one read per edge lo
 3. **Plan:** a pure function turns an entity into page keys (its page, its parent, the section index, the home page if featured, the sitemap).
 4. **Render** with `html/template`; skip the upload if the hash matches `baked_pages.sha256`, so a full re-bake is cheap.
 5. **Publish:** S3 PUT with `Content-Type` and `Cache-Control` as metadata, in the order images → pages → index and sitemap.
-6. **Remove:** overwrite with a stub carrying `status=410`, or `status=301` plus `location`, honoured by the function. The old site's URL map is a baked `redirects.json`.
+6. **Remove:** delete the page and its JSON from the bucket; the Worker answers 404 with the baked 404 page. No `410` stub is kept. Re-bake the pages that linked to the item (lists, home, search index, sitemap) before deleting it, so no live page links to a 404. After a full re-bake that ended without failure, delete every `pages/` and `data/` object the bake did not produce, refusing when that would delete more than a set share of the bucket (the count is logged first). A moved URL is a `301` entry in the baked `redirects.json`, which also holds the old site's URL map.
 7. **Re-bake everything** after template or config changes and at launch; safe to repeat.
+
+**Page JSON (data format v1).** Every baked page is also published as JSON under `data/v1/<locale>/…` in the public bucket, served from the media domain with `Access-Control-Allow-Origin: *`: `{"v": 1, "kind", "id", "locale", "url", "bakedAt", "view"}`, where `view` is the value the template rendered, so the HTML and the JSON cannot drift. It is planned, published, removed and swept with its page, and is not linked from the HTML. Scripts, apps and other consumers read it. A breaking change is `v2` beside `v1`; the format is documented from the Go types, and a test fails when they change without a version bump.
+
+**Navigation.** The Worker serves a hard load (first visit, refresh, crawler) straight from the bucket. After that the site's script takes over: it routes in the page and fetches the next page's JSON or HTML from the media domain, so an in-page click makes no Worker request. Any failure falls back to a normal load. The baked HTML stays complete, so the site works without the script.
 
 ### Images and files (A18)
 
@@ -98,24 +103,24 @@ Title, description and canonical from `SITE_ORIGIN`; Open Graph tags with an abs
 
 ### Serving contract
 
-The request function, bound to the site bucket, must in order:
+The Worker, bound to the site bucket, serves hard loads only and must in order:
 1. Redirect the provider's default hostnames: 301 to the canonical host in production, 403 in preview.
 2. Normalise the path: trailing slash or upper case → 301; `/` → `pages/index.html`; `/items/123-name` → `pages/items/123-name.html`.
 3. Apply `redirects.json` (cached in memory, refreshed every 60 s).
 4. Read with the request's conditional headers; a matching ETag returns 304.
-5. Honour stubs (`410`, `301`); a missing key serves `pages/404.html` with 404.
+5. A missing key (a deleted page, an unknown path) serves the baked 404 page with 404; a bucket read error goes to the origin, never to a 404.
 6. Set `Cache-Control`, `ETag`, `X-Robots-Tag`, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, and a CSP whose `connect-src` allows only the API and media origins.
 7. In preview, serve `/media/*` from the preview media bucket.
 
-Assets never run the function. One contract test (URLs → expected status and headers) runs against every edge adapter, preview and the trial system.
+Assets and everything under the media domain (`data/`, images, `live/`) never run the Worker. One contract test (URLs → expected status and headers) runs against every edge adapter, preview and the trial system.
 
 ### Cache semantics (A8)
 
 | Resource | `Cache-Control` | Edge cache |
 | --- | --- | --- |
 | Baked HTML | `public, max-age=0, must-revalidate` + ETag | None |
-| Index JSON | `public, max-age=60, stale-while-revalidate=300` | None |
-| Sitemap, robots, redirects | `public, max-age=3600` | None |
+| Page JSON, search index, baked HTML read from the media domain | `public, max-age=60, stale-while-revalidate=300` | Yes, purged by URL when the bake changes the file |
+| Sitemap, robots, `redirects.json` | `public, max-age=3600` | None |
 | JS modules, CSS | `public, max-age=0, must-revalidate` | Static hosting |
 | Fonts | `public, max-age=31536000, immutable` | Static hosting |
 | Images | `public, max-age=31536000, immutable` | Yes |
