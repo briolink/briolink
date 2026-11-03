@@ -10,7 +10,7 @@ set -eu
 cd "$(dirname "$0")"
 dest="${1:?usage: seed-modcache.sh <dest-dir>}"
 image=briolink-build-worker
-docker build -q -t "$image" .
+docker build -q -f Containerfile -t "$image" .
 mkdir -p "$dest"
 docker run --rm \
   -v "$(cd ../.. && pwd)":/workspace -w /workspace \

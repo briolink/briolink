@@ -82,3 +82,8 @@ optional while the repo had no external module; now that `modernc.org/sqlite`
 is a dependency (not vendored, per A6's exception above), it's required for
 any task that builds or tests against it — run `seed-modcache.sh <dest>`
 once (whenever `go.sum` changes) and pass that `<dest>` as `<host-gomodcache>`.
+
+`build-tools.sh <dest>` builds the static linux `generate` and `mutate` the
+checks call; pass `<dest>` as the runner's `Container.Tools`
+(mounted at `/briolink/bin`, first on `PATH`). [cmd/runner](../../cmd/runner/README.md)
+takes the three directories as flags.

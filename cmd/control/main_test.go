@@ -195,7 +195,7 @@ func TestRefusesToStart(t *testing.T) {
 		"key readable by others": {same, func(t *testing.T) map[string]string { return credentials(t, goodKey, 0o644) }, "readable by other users"},
 		"key too short":          {same, func(t *testing.T) map[string]string { return credentials(t, "abcd", 0o400) }, "64 hexadecimal digits"},
 		"key not hex":            {same, func(t *testing.T) map[string]string { return credentials(t, strings.Repeat("zz", 32), 0o400) }, "64 hexadecimal digits"},
-		"unknown adapter":        {func(s string) string { return strings.Replace(s, `"coder":"fake"`, `"coder":"ollama"`, 1) }, good, `adapters.coder: no adapter "ollama" (known: fake)`},
+		"unknown adapter":        {func(s string) string { return strings.Replace(s, `"coder":"fake"`, `"coder":"bogus"`, 1) }, good, `adapters.coder: no adapter "bogus" (known: fake, ollama)`},
 		"github, no section":     {func(s string) string { return strings.Replace(s, `"codehost":"fake"`, `"codehost":"github"`, 1) }, good, `adapters.codehost: github: the "github" section is required`},
 		"wildcard listen":        {func(s string) string { return strings.Replace(s, "@LISTEN@", "0.0.0.0:8443", 1) }, good, "would listen publicly"},
 		"missing routing":        {func(s string) string { return strings.Replace(s, "routing.json", "gone.json", 1) }, good, "gone.json"},

@@ -70,9 +70,9 @@ context.
 - The founder is not *assigned* (the code host port has no assignee), only
   labelled.
 - A project's own `routing` override of the tier ([#107](https://github.com/briolink/briolink/issues/107)).
-- The entry point (`cmd/*`) that wires the adapters, the database and the
-  contracts of `tasks/` ([#106](https://github.com/briolink/briolink/issues/106)).
-- A real run: no `acme` task has opened its pull request through the runner yet.
+- The reasoner and the code host in the entry point
+  ([cmd/runner](../cmd/runner/README.md) wires the coder, the records and the
+  container only): no real `acme` task has opened its pull request yet.
 
 ## Tests
 
@@ -93,3 +93,13 @@ the final newline were added, the same model failed four attempts (gofmt for a
 missing final newline, then `invoice.Total` undefined: it could not see the
 helpers); `qwen2.5:1.5b` fails (spaces for tabs, no `amount > 0`). Four runs per
 model, so not a solve rate. The commands ran on the host, not in the build image.
+
+**In the build image (2026-10-22, [#106](https://github.com/briolink/briolink/issues/106)):**
+the same `TestLive`, every command by `docker run --network none` in the image
+of [container/](container/README.md) (`BRIOLINK_LIVE_DOCKER=briolink-build-worker`,
+`BRIOLINK_LIVE_TOOLS`, `BRIOLINK_LIVE_MODCACHE`): `qwen3-coder:30b` passed on the
+first attempt, 65.7 s for the whole test (it also builds the host tools, and
+includes the model's answer); the scripted `TestAcmeChecks`, a failed attempt then
+a pass, 35.8 s. One run each. The run records were written by the fake in these
+tests; `cmd/runner`'s test reads its records back from the control plane's store,
+not yet through a running `/api/v1`.

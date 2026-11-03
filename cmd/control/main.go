@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/adapter/codehost/github"
+	"github.com/briolink/briolink/adapter/coder/ollama"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/operator"
@@ -32,6 +33,7 @@ import (
 	"github.com/briolink/briolink/port/codehost"
 	"github.com/briolink/briolink/port/coder"
 	"github.com/briolink/briolink/port/reasoner"
+	"github.com/briolink/briolink/runner"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -59,6 +61,7 @@ type ports struct {
 // actor given, the port's name).
 type deps struct {
 	cfg    *operator.Config
+	table  *routing.Table
 	secret func(ctx context.Context, actor, name string) ([]byte, error)
 }
 
@@ -69,7 +72,10 @@ var (
 		"fake":   func(deps) (codehost.Host, error) { return codehost.NewFake(), nil },
 		"github": newGitHub,
 	}
-	coders    = map[string]func(deps) (coder.Coder, error){"fake": func(deps) (coder.Coder, error) { return &coder.Fake{}, nil }}
+	coders = map[string]func(deps) (coder.Coder, error){
+		"fake":   func(deps) (coder.Coder, error) { return &coder.Fake{}, nil },
+		"ollama": newOllama,
+	}
 	reasoners = map[string]func(deps) (reasoner.Reasoner, error){"fake": func(deps) (reasoner.Reasoner, error) { return &reasoner.Fake{}, nil }}
 )
 
@@ -86,6 +92,16 @@ func newGitHub(d deps) (codehost.Host, error) {
 		InstallationID: g.InstallationID,
 		Key:            func(ctx context.Context) ([]byte, error) { return d.secret(ctx, "codehost", g.KeySecret) },
 	}}, nil
+}
+
+// newOllama binds the coder to the model the routing table gives the runner's
+// job (cmd/runner binds it the same way); Ollama is on the ops host.
+func newOllama(d deps) (coder.Coder, error) {
+	model, ok := d.table.Tiers[d.table.Jobs[runner.Job]]
+	if !ok {
+		return nil, fmt.Errorf("the routing table has no model for the job %q", runner.Job)
+	}
+	return &ollama.Coder{Model: model}, nil
 }
 
 func pick[T any](port, name string, from map[string]func(deps) (T, error), d deps) (T, error) {
@@ -180,7 +196,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 		noSecret := func(context.Context, string, string) ([]byte, error) {
 			return nil, errors.New("the secret store is not open")
 		}
-		if _, err = wire(deps{cfg: cfg, secret: noSecret}); err != nil {
+		if _, err = wire(deps{cfg: cfg, table: table, secret: noSecret}); err != nil {
 			return err
 		}
 	}
@@ -206,7 +222,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	if len(command) > 0 {
 		return admin(ctx, vlt, command, in, out)
 	}
-	p, err := wire(deps{cfg: cfg, secret: vlt.Use})
+	p, err := wire(deps{cfg: cfg, table: table, secret: vlt.Use})
 	if err != nil {
 		return err
 	}
