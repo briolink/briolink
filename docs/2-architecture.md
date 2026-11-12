@@ -262,6 +262,8 @@ agents/                master.md (rules, roles, routing) and one brief per role
 docs/                  1-methodology … 5-roadmap
 go.mod                 module github.com/briolink/briolink (E1)
 cmd/control/           composition root: control plane + control center
+cmd/runner/            composition root: runs one task contract for an issue (coder, reasoner, code host, records)
+cmd/internal/wire/     the adapter names and builders cmd/control and cmd/runner share
 cmd/generate/          the generators' composition root: regenerate gen/, or check it is current
 cmd/assess/            composition root: assessment worker
 control/               the control plane: operator config, routing table, store, events, service, server

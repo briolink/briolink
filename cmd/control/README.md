@@ -19,13 +19,16 @@ bin/control [-config operator.json] <command>
   "database": "/var/lib/briolink/control.db",
   "routing_file": "/srv/briolink/spec/routing.json",
   "master_key_credential": "briolink-master-key",
-  "adapters": { "codehost": "github", "coder": "fake", "reasoner": "fake" },
+  "adapters": { "codehost": "github", "coder": "ollama", "reasoner": "claudecode" },
   "github": { "repo": "briolink/briolink", "app_id": 5307371,
     "installation_id": 171151281, "key_secret": "BRIOLINK_BOT_KEY" } }
 ```
 
 - `adapters.coder` is `fake` or `ollama` (the routing table's `pure_function`
-  model); the runner ([cmd/runner](../runner/README.md)) uses it.
+  model) and `adapters.reasoner` is `fake` or `claudecode` (the `routine` and
+  `top` models of the routing table, on the founder's login); the runner
+  ([cmd/runner](../runner/README.md)) uses both. The names and the way each
+  adapter is built are shared with it in `cmd/internal/wire`.
 - `adapters.codehost` is `fake` or `github`. `github` acts as the bot (A22) on
   `github.repo`; it reads the App's private key from the secret store
   (`key_secret`, audited as actor `codehost`) on each hourly token mint. The

@@ -1,8 +1,8 @@
-// Command runner is the composition root for the runner: it wires the coder
-// and the run records from the installation's operator config and the build
-// worker container, loads one task contract and runs it for an issue
-// (docs/2-architecture.md § Runner). Like cmd/control, it is the only place
-// that names adapters.
+// Command runner is the composition root for the runner: it wires the coder,
+// the reasoner, the code host and the run records from the installation's
+// operator config and the build worker container, loads one task contract and
+// runs it for an issue (docs/2-architecture.md § Runner). It binds the same
+// adapters as cmd/control, through cmd/internal/wire.
 package main
 
 import (
@@ -14,17 +14,15 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/briolink/briolink/adapter/coder/ollama"
+	"github.com/briolink/briolink/cmd/internal/wire"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/operator"
 	"github.com/briolink/briolink/control/routing"
 	"github.com/briolink/briolink/control/store"
-	"github.com/briolink/briolink/port/coder"
+	"github.com/briolink/briolink/control/vault"
 	"github.com/briolink/briolink/runner"
 	"github.com/briolink/briolink/runner/contract"
 )
@@ -32,17 +30,10 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, os.Args[1:], os.Stdout, nil); err != nil {
+	if err := run(ctx, os.Args[1:], os.Getenv, os.Stdout, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "runner:", err)
 		os.Exit(1)
 	}
-}
-
-// The coders the runner can be bound to, by the name operator.json gives
-// (cmd/control binds the same names).
-var coders = map[string]func(model string) coder.Coder{
-	"fake":   func(string) coder.Coder { return &coder.Fake{} },
-	"ollama": func(model string) coder.Coder { return &ollama.Coder{Model: model} },
 }
 
 // errFailed is a run that ended without a pass: the exit status says so, the
@@ -51,11 +42,15 @@ var errFailed = errors.New("the task did not pass")
 
 // run works one task. host, when not nil, runs every host command (git and
 // the container engine) in place of os/exec.
-func run(ctx context.Context, args []string, out io.Writer, host runner.Command) error {
+func run(ctx context.Context, args []string, getenv func(string) string, out io.Writer, host runner.Command) error {
 	fs := flag.NewFlagSet("runner", flag.ContinueOnError)
 	configPath := fs.String("config", "operator.json", "the installation's operator config")
 	repo := fs.String("repo", ".", "the project's git repository")
 	base := fs.String("base", "", "the ref worktrees branch from (HEAD when empty)")
+	mergeInto := fs.String("merge-into", "", "the branch a pass's pull request asks to merge into (main when empty)")
+	remote := fs.String("remote", "", "the git remote a pass is pushed to (origin when empty)")
+	gitName := fs.String("git-name", "", "the name on the pass's commit (git's own config when empty)")
+	gitEmail := fs.String("git-email", "", "the e-mail on the pass's commit (git's own config when empty)")
 	tasks := fs.String("tasks", "", "the directory of task contracts (<repo>/tasks when empty)")
 	task := fs.String("task", "", "the task contract to run: its id, the file name in the tasks directory without .json")
 	issue := fs.Int64("issue", 0, "the task's issue number, the key of its run records")
@@ -82,14 +77,13 @@ func run(ctx context.Context, args []string, out io.Writer, host runner.Command)
 	if !ok {
 		return fmt.Errorf("the routing table has no model for the job %q", runner.Job)
 	}
-	newCoder, ok := coders[cfg.Adapters.Coder]
-	if !ok {
-		known := make([]string, 0, len(coders))
-		for k := range coders {
-			known = append(known, k)
-		}
-		sort.Strings(known)
-		return fmt.Errorf("adapters.coder: no adapter %q (known: %s)", cfg.Adapters.Coder, strings.Join(known, ", "))
+	// Refuse a bad binding before touching the key or the database; nothing
+	// is used yet, so no secret is needed.
+	noSecret := func(context.Context, string, string) ([]byte, error) {
+		return nil, errors.New("the secret store is not open")
+	}
+	if _, err = wire.All(wire.Deps{Cfg: cfg, Table: table, Secret: noSecret}); err != nil {
+		return err
 	}
 	dir := *tasks
 	if dir == "" {
@@ -103,6 +97,10 @@ func run(ctx context.Context, args []string, out io.Writer, host runner.Command)
 		return err
 	}
 
+	key, err := wire.LoadKey(getenv, cfg.MasterKeyCredential)
+	if err != nil {
+		return err
+	}
 	// The records go to the control plane's database; events reach a running
 	// control plane's streams only after it restarts (no broker is shared).
 	db, err := store.Open(ctx, cfg.Database, events.New(), time.Now)
@@ -110,18 +108,37 @@ func run(ctx context.Context, args []string, out io.Writer, host runner.Command)
 		return err
 	}
 	defer db.Close()
+	// The vault gives the code host its App key, audited like in the control
+	// plane. The runner makes no tokens, so it accepts no role.
+	vlt, err := vault.New(db.DB(), key, db, nil, time.Now)
+	if err != nil {
+		return err
+	}
+	if err := vlt.Verify(ctx); err != nil {
+		return fmt.Errorf("master key %s: %w", cfg.MasterKeyCredential, err)
+	}
+	ports, err := wire.All(wire.Deps{Cfg: cfg, Table: table, Secret: vlt.Use})
+	if err != nil {
+		return err
+	}
 
 	r := &runner.Runner{
-		Coder: newCoder(model),
+		Coder: ports.Coder,
 		Workspaces: &runner.Container{
 			Repo: *repo, Base: *base, Image: *image,
 			Tools: abs(*tools), ModCache: abs(*modcache), Cache: abs(*cache),
+			Remote: *remote, GitName: *gitName, GitEmail: *gitEmail,
 			Cmd: host,
 		},
-		Records: db,
-		Routing: table,
+		Records:  db,
+		Routing:  table,
+		Reasoner: ports.Reasoner,
+		Host:     ports.CodeHost,
+		Base:     *mergeInto,
+		History:  history(cfg),
 	}
-	fmt.Fprintf(out, "runner: %s for issue #%d, coder %s (%s)\n", ct.TaskID, *issue, cfg.Adapters.Coder, model)
+	fmt.Fprintf(out, "runner: %s for issue #%d, coder %s (%s), reasoner %s, codehost %s\n",
+		ct.TaskID, *issue, cfg.Adapters.Coder, model, cfg.Adapters.Reasoner, cfg.Adapters.CodeHost)
 	res, err := r.Run(ctx, *issue, ct)
 	if err != nil {
 		return err
@@ -133,8 +150,23 @@ func run(ctx context.Context, args []string, out io.Writer, host runner.Command)
 		fmt.Fprintf(out, "stopped: %s\n", res.Stop)
 		return errFailed
 	}
+	if res.PullRequest > 0 {
+		fmt.Fprintf(out, "pull request #%d opened\n", res.PullRequest)
+	}
 	fmt.Fprintln(out, "passed")
 	return nil
+}
+
+// history is the link to a task's full run history for the hand-off: the
+// control plane's runs of that issue.
+func history(cfg *operator.Config) func(issue int64) string {
+	scheme := "http"
+	if cfg.TLS != nil {
+		scheme = "https"
+	}
+	return func(issue int64) string {
+		return fmt.Sprintf("%s://%s/api/v1/runs?task=%d", scheme, cfg.Listen, issue)
+	}
 }
 
 func outcome(a runner.Attempt) string {

@@ -14,14 +14,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"sort"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/briolink/briolink/adapter/codehost/github"
-	"github.com/briolink/briolink/adapter/coder/ollama"
+	"github.com/briolink/briolink/cmd/internal/wire"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/logic"
 	"github.com/briolink/briolink/control/operator"
@@ -30,10 +26,6 @@ import (
 	"github.com/briolink/briolink/control/service"
 	"github.com/briolink/briolink/control/store"
 	"github.com/briolink/briolink/control/vault"
-	"github.com/briolink/briolink/port/codehost"
-	"github.com/briolink/briolink/port/coder"
-	"github.com/briolink/briolink/port/reasoner"
-	"github.com/briolink/briolink/runner"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -46,120 +38,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "control:", err)
 		os.Exit(1)
 	}
-}
-
-// ports are the adapters the control plane holds. Only the code host is
-// served by the API today; the runner (#60) takes the other two.
-type ports struct {
-	codeHost codehost.Host
-	coder    coder.Coder
-	reasoner reasoner.Reasoner
-}
-
-// deps is what an adapter is built from: the operator config, and the
-// secret store's Use for the secrets it needs (each use is audited under the
-// actor given, the port's name).
-type deps struct {
-	cfg    *operator.Config
-	table  *routing.Table
-	secret func(ctx context.Context, actor, name string) ([]byte, error)
-}
-
-// The adapters each port can be bound to, by the name operator.json gives.
-// Real adapters are added here as they pass their port's contract tests.
-var (
-	codeHosts = map[string]func(deps) (codehost.Host, error){
-		"fake":   func(deps) (codehost.Host, error) { return codehost.NewFake(), nil },
-		"github": newGitHub,
-	}
-	coders = map[string]func(deps) (coder.Coder, error){
-		"fake":   func(deps) (coder.Coder, error) { return &coder.Fake{}, nil },
-		"ollama": newOllama,
-	}
-	reasoners = map[string]func(deps) (reasoner.Reasoner, error){"fake": func(deps) (reasoner.Reasoner, error) { return &reasoner.Fake{}, nil }}
-)
-
-// newGitHub binds the code host to the repository in operator.json's github
-// section, acting as the App (A22): its key is read from the secret store on
-// each token mint, never kept.
-func newGitHub(d deps) (codehost.Host, error) {
-	g := d.cfg.GitHub
-	if g == nil {
-		return nil, errors.New(`the "github" section is required`)
-	}
-	return &github.Host{Repo: g.Repo, Tokens: &github.TokenSource{
-		AppID:          g.AppID,
-		InstallationID: g.InstallationID,
-		Key:            func(ctx context.Context) ([]byte, error) { return d.secret(ctx, "codehost", g.KeySecret) },
-	}}, nil
-}
-
-// newOllama binds the coder to the model the routing table gives the runner's
-// job (cmd/runner binds it the same way); Ollama is on the ops host.
-func newOllama(d deps) (coder.Coder, error) {
-	model, ok := d.table.Tiers[d.table.Jobs[runner.Job]]
-	if !ok {
-		return nil, fmt.Errorf("the routing table has no model for the job %q", runner.Job)
-	}
-	return &ollama.Coder{Model: model}, nil
-}
-
-func pick[T any](port, name string, from map[string]func(deps) (T, error), d deps) (T, error) {
-	var zero T
-	f, ok := from[name]
-	if !ok {
-		known := make([]string, 0, len(from))
-		for k := range from {
-			known = append(known, k)
-		}
-		sort.Strings(known)
-		return zero, fmt.Errorf("adapters.%s: no adapter %q (known: %s)", port, name, strings.Join(known, ", "))
-	}
-	v, err := f(d)
-	if err != nil {
-		return zero, fmt.Errorf("adapters.%s: %s: %w", port, name, err)
-	}
-	return v, nil
-}
-
-func wire(d deps) (ports, error) {
-	var p ports
-	var err error
-	a := d.cfg.Adapters
-	if p.codeHost, err = pick("codehost", a.CodeHost, codeHosts, d); err != nil {
-		return p, err
-	}
-	if p.coder, err = pick("coder", a.Coder, coders, d); err != nil {
-		return p, err
-	}
-	p.reasoner, err = pick("reasoner", a.Reasoner, reasoners, d)
-	return p, err
-}
-
-// loadKey reads the master key from the systemd credential of that name. A
-// file other users can read is refused: the key is root-only (A20).
-func loadKey(getenv func(string) string, credential string) ([]byte, error) {
-	dir := getenv("CREDENTIALS_DIRECTORY")
-	if dir == "" {
-		return nil, fmt.Errorf("CREDENTIALS_DIRECTORY is not set: the master key (%s) comes from a systemd credential", credential)
-	}
-	path := filepath.Join(dir, credential)
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("master key: %w", err)
-	}
-	if info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("master key %s is readable by other users (mode %v): it must be root-only", path, info.Mode().Perm())
-	}
-	text, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("master key: %w", err)
-	}
-	key, err := vault.ParseKey(text)
-	if err != nil {
-		return nil, fmt.Errorf("master key %s: %w", path, err)
-	}
-	return key, nil
 }
 
 // run serves until ctx ends, or, given a command (secret, token,
@@ -185,7 +63,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	if err != nil {
 		return err
 	}
-	key, err := loadKey(getenv, cfg.MasterKeyCredential)
+	key, err := wire.LoadKey(getenv, cfg.MasterKeyCredential)
 	if err != nil {
 		return err
 	}
@@ -196,7 +74,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 		noSecret := func(context.Context, string, string) ([]byte, error) {
 			return nil, errors.New("the secret store is not open")
 		}
-		if _, err = wire(deps{cfg: cfg, table: table, secret: noSecret}); err != nil {
+		if _, err = wire.All(wire.Deps{Cfg: cfg, Table: table, Secret: noSecret}); err != nil {
 			return err
 		}
 	}
@@ -222,13 +100,13 @@ func run(ctx context.Context, args []string, getenv func(string) string, in io.R
 	if len(command) > 0 {
 		return admin(ctx, vlt, command, in, out)
 	}
-	p, err := wire(deps{cfg: cfg, table: table, secret: vlt.Use})
+	p, err := wire.All(wire.Deps{Cfg: cfg, Table: table, Secret: vlt.Use})
 	if err != nil {
 		return err
 	}
 
 	handler := server.Handler(server.Config{
-		Service: &service.Service{Routing: table, Host: p.codeHost, Records: db, Credentials: vlt, Funcs: logic.Impl{}},
+		Service: &service.Service{Routing: table, Host: p.CodeHost, Records: db, Credentials: vlt, Funcs: logic.Impl{}},
 		Events:  broker,
 		Tokens:  vlt,
 	})

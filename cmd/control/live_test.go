@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/adapter/codehost/github"
+	"github.com/briolink/briolink/cmd/internal/wire"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/operator"
 	"github.com/briolink/briolink/control/server"
@@ -52,7 +53,7 @@ func TestGitHubLive(t *testing.T) {
 		t.Fatal(cfgPath + ": no github section")
 	}
 	owner, _, _ := strings.Cut(cfg.GitHub.Repo, "/")
-	key, err := loadKey(os.Getenv, cfg.MasterKeyCredential)
+	key, err := wire.LoadKey(os.Getenv, cfg.MasterKeyCredential)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestGitHubLive(t *testing.T) {
 		g := *cfg.GitHub
 		g.Repo = repo
 		c.GitHub = &g
-		h, err := newGitHub(deps{cfg: &c, secret: vlt.Use})
+		h, err := wire.GitHub(wire.Deps{Cfg: &c, Secret: vlt.Use})
 		if err != nil {
 			t.Fatal(err)
 		}
