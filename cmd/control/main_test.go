@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/briolink/briolink/adapter/codehost/github"
+	"github.com/briolink/briolink/cmd/internal/wire"
 	"github.com/briolink/briolink/control/events"
 	"github.com/briolink/briolink/control/operator"
 	"github.com/briolink/briolink/control/store"
@@ -424,7 +425,7 @@ func TestCredentialExpiryCheck(t *testing.T) {
 func TestGitHubReadsTheBotKeyFromTheStore(t *testing.T) {
 	cfg := &operator.Config{GitHub: &operator.GitHub{Repo: "acme/site", AppID: 1, InstallationID: 2, KeySecret: "BOT_APP_KEY"}}
 	var asked []string
-	h, err := newGitHub(deps{cfg: cfg, secret: func(ctx context.Context, actor, name string) ([]byte, error) {
+	h, err := wire.GitHub(wire.Deps{Cfg: cfg, Secret: func(ctx context.Context, actor, name string) ([]byte, error) {
 		asked = append(asked, actor+" "+name)
 		return nil, errors.New("sealed")
 	}})
